@@ -1,0 +1,524 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
+}
+
+/* --- UI Container & Layout --- */
+#ui-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0; /* No gap, panels touch */
+    z-index: 100;
+}
+
+/* Glassmorphism Base */
+.glass-panel {
+    background: rgba(15, 15, 25, 0.85);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: -5px 0 32px rgba(0,0,0,0.5);
+}
+
+/* --- Sidebar --- */
+#sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 5px;
+    width: 50px; 
+    gap: 15px;
+    flex-shrink: 0;
+    height: 100%;
+    border-radius: 0;
+    z-index: 102;
+    overflow: hidden;
+    background: rgba(10, 10, 20, 0.95);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    transition: width 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+}
+
+#sidebar.hidden {
+    width: 0;
+    opacity: 0;
+    padding: 0;
+    border: none;
+}
+
+.divider-h {
+    width: 80%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 5px 0;
+}
+
+/* --- Settings Panel --- */
+#settings-panel {
+    width: 300px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Transition for collapsing to the right */
+    transition: width 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
+    transform-origin: right center;
+    border-radius: 0;
+    z-index: 101;
+}
+
+#settings-panel.collapsed {
+    width: 0;
+    opacity: 0;
+    transform: translateX(20px);
+    border: none;
+    margin: 0;
+}
+
+.panel-header {
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.logo-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-title h3 {
+    margin: 0;
+    font-size: 0.9rem; /* Smaller font to match collapsible header */
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.panel-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%; /* Ensure it fits within parent */
+    box-sizing: border-box; /* Include padding in width */
+    overflow-y: auto; /* Allow scrolling if needed */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* --- Control Boxes --- */
+.control-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 8px; /* Further reduced padding */
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* Further reduced gap */
+    width: 100%; /* Ensure it fits within parent */
+    box-sizing: border-box; /* Include padding in width */
+    margin-bottom: 6px; /* Reduced margin */
+}
+
+.box-header {
+    font-size: 0.7rem; /* Smaller font */
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px; /* Minimal margin */
+}
+
+/* Highlight Box (Redshift) */
+.control-box.highlight-box {
+    background: linear-gradient(135deg, rgba(76, 201, 240, 0.15), rgba(76, 201, 240, 0.02));
+    border: 1px solid rgba(76, 201, 240, 0.3);
+    box-shadow: 0 0 15px rgba(76, 201, 240, 0.1);
+}
+
+.control-box.highlight-box .box-header {
+    color: #4cc9f0;
+    font-size: 0.85rem;
+}
+
+/* Cosmology Box (Standard Box, Custom Inner Styles) */
+.control-box.cosmology-box .box-header {
+    color: #c77dff; /* Softer Purple */
+}
+
+.control-box.cosmology-box .math-label {
+    color: #e0aaff; /* Softer Pink/Lilac */
+}
+
+.control-box.cosmology-box .value-display {
+    color: #e0aaff;
+}
+
+/* Custom Slider Color for Cosmology */
+.control-box.cosmology-box input[type=range] {
+    background-image: linear-gradient(#e0aaff, #e0aaff);
+}
+
+.sidebar-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-logo:hover {
+    transform: scale(1.1);
+}
+
+.disclaimer-text {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 20px;
+    padding: 0 5px;
+    text-align: center;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* --- Sliders --- */
+.compact-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 24px;
+    width: 100%; /* Ensure full width */
+}
+
+.compact-slider-row label {
+    width: 30px;
+    font-size: 0.9rem;
+    color: #ccc;
+    flex-shrink: 0;
+}
+
+.compact-slider-row label.math-label {
+    font-family: "Times New Roman", serif;
+    font-style: italic;
+    font-size: 1.2rem;
+    color: #4cc9f0;
+}
+
+/* Full Width Slider Container */
+.full-width-slider-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.slider-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem; /* Smaller font */
+    color: #ccc;
+}
+
+.full-width-slider-container input[type=range] {
+    width: 100%;
+    margin-top: 2px; /* Reduced margin */
+}
+
+.value-display {
+    width: 40px;
+    text-align: right;
+    font-family: monospace;
+    font-size: 0.8rem; /* Smaller font */
+    color: #4cc9f0;
+    flex-shrink: 0;
+}
+
+/* Thinner Custom Range Slider */
+input[type=range] {
+    -webkit-appearance: none;
+    flex-grow: 1; /* Take remaining space */
+    width: 0; /* Fix flexbox overflow issue */
+    height: 2px; /* Thinner track */
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    background-image: linear-gradient(#4cc9f0, #4cc9f0);
+    background-size: 0% 100%;
+    background-repeat: no-repeat;
+}
+
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #4cc9f0; /* Match slider color */
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    transition: transform 0.1s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Cosmology Box Specific Slider Colors */
+.control-box.cosmology-box input[type=range]::-webkit-slider-thumb {
+    background: #e0aaff;
+}
+
+/* RTL Slider (Redshift) */
+input[type=range].slider-rtl {
+    -webkit-appearance: none; /* Ensure standard appearance is removed */
+    appearance: none;
+    direction: rtl;
+    background-position: right center; 
+    height: 6px; /* Medium-thick track */
+    border-radius: 3px;
+    margin: 10px 0; /* Spacing */
+    /* Gradient background: Filled part (colored) on the right (start), Empty part (transparent/dim) on the left */
+    /* Since direction is RTL, the "filled" part (0 to value) is visually on the right */
+    /* We use background-size to control the width of the filled part */
+    background-image: linear-gradient(to left, #4cc9f0, #4cc9f0);
+    background-repeat: no-repeat;
+    background-color: rgba(255,255,255,0.1); /* Track color */
+}
+
+input[type=range].slider-rtl::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #4cc9f0; /* Colored selector */
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+input[type=range].slider-rtl::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: #4cc9f0;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+    /* Moz range thumb is vertically centered by default usually, but let's check */
+}
+
+/* --- Buttons --- */
+.button-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+button.icon-text-btn {
+    flex: 1;
+    background: rgba(76, 201, 240, 0.1);
+    border: 1px solid rgba(76, 201, 240, 0.2);
+    color: #4cc9f0;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+button.icon-text-btn:hover {
+    background: rgba(76, 201, 240, 0.2);
+    box-shadow: 0 0 10px rgba(76, 201, 240, 0.1);
+}
+
+button.icon-btn {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+button.icon-btn.active {
+    color: #4cc9f0;
+    background: rgba(76, 201, 240, 0.1);
+}
+
+button.secondary-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #aaa;
+    font-size: 0.8rem;
+    padding: 4px 8px; /* Thinner button */
+    border-radius: 6px;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button.secondary-btn:hover {
+    border-color: #4cc9f0;
+    color: #4cc9f0;
+    background: rgba(76, 201, 240, 0.05);
+}
+
+/* --- Layer Checkboxes --- */
+.layer-checkbox-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.layer-checkbox-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.layer-checkbox-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.layer-checkbox-item input {
+    display: none;
+}
+
+.layer-checkbox-item .checkmark {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #4cc9f0;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: all 0.2s;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.layer-checkbox-item input:checked + .checkmark {
+    background: #4cc9f0;
+    color: #0b1120;
+}
+
+.layer-label-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+}
+
+.spacer-v {
+    height: 15px;
+    width: 100%;
+}
+
+/* --- Toggle Switch --- */
+.toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toggle-label {
+    font-size: 0.75rem;
+    color: #ccc;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 16px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255,255,255,0.2);
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 12px;
+    width: 12px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #4cc9f0;
+}
+
+input:checked + .slider:before {
+    transform: translateX(12px);
+}
+
+.slider.round {
+    border-radius: 16px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+canvas {
+    display: block;
+}
