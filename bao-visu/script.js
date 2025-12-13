@@ -22,6 +22,8 @@ const baoSlider = document.getElementById('bao-slider');
 const baoVal = document.getElementById('bao-val');
 const galaxyDensitySlider = document.getElementById('galaxy-density-slider');
 const galaxyNumberVal = document.getElementById('galaxy-number-val');
+const gravitySlider = document.getElementById('gravity-slider');
+const gravityVal = document.getElementById('gravity-val');
 const shuffleBtn = document.getElementById('shuffle-btn');
 
 // Sidebar & Layout Controls
@@ -38,6 +40,10 @@ const settingsPanel = document.getElementById('settings-panel');
 const layerDensityToggle = document.getElementById('layer-density-toggle');
 const layerGalaxiesToggle = document.getElementById('layer-galaxies-toggle');
 
+// Reference Frame Controls
+const framePhysicalBtn = document.getElementById('frame-physical-btn');
+const frameComovingBtn = document.getElementById('frame-comoving-btn');
+
 // Cosmology Controls
 const omegamSlider = document.getElementById('omegam-slider');
 const omegamVal = document.getElementById('omegam-val');
@@ -49,7 +55,8 @@ const flatToggle = document.getElementById('flat-toggle');
 const CONFIG = {
     // Physics & Cosmology
     COMOVING_RADIUS: 180,      
-    EXPANSION_DAMPING: 0.6,    
+    EXPANSION_DAMPING: 0.6,
+    GRAVITY_STRENGTH: 0.2, // Strength of structure formation (0 to 1)
     
     // Animation
     TIME_SPEED: 0.005, // Adjusted for Friedmann evolution
@@ -100,6 +107,7 @@ const state = {
     showDensity: true,
     showGalaxies: true,
     galaxyDensity: 1.0,
+    isComoving: false, // New state for reference frame
     
     // Cosmology
     omega_m: 0.3,
@@ -208,10 +216,32 @@ function init() {
             draw();
         });
     }
+
+    if (gravitySlider) {
+        gravitySlider.addEventListener('input', (e) => {
+            CONFIG.GRAVITY_STRENGTH = parseFloat(e.target.value);
+            updateUI();
+            draw();
+        });
+    }
     
     if (shuffleBtn) {
         shuffleBtn.addEventListener('click', () => {
             shuffleCenters();
+            draw();
+        });
+    }
+
+    // Reference Frame Listeners
+    if (framePhysicalBtn && frameComovingBtn) {
+        framePhysicalBtn.addEventListener('click', () => {
+            state.isComoving = false;
+            updateFrameUI();
+            draw();
+        });
+        frameComovingBtn.addEventListener('click', () => {
+            state.isComoving = true;
+            updateFrameUI();
             draw();
         });
     }
@@ -408,8 +438,21 @@ function updateLayerUI() {
     }
 }
 
+function updateFrameUI() {
+    if (framePhysicalBtn && frameComovingBtn) {
+        if (state.isComoving) {
+            framePhysicalBtn.classList.remove('active');
+            frameComovingBtn.classList.add('active');
+        } else {
+            framePhysicalBtn.classList.add('active');
+            frameComovingBtn.classList.remove('active');
+        }
+    }
+}
+
 function updateUI() {
     updateLayerUI();
+    updateFrameUI();
     if (zVal) zVal.textContent = state.z.toFixed(2);
     if (zSlider) {
         // Direct mapping for RTL slider
@@ -430,6 +473,12 @@ function updateUI() {
         }
     }
     if (galaxyDensitySlider) updateSliderFill(galaxyDensitySlider);
+
+    if (gravityVal) gravityVal.textContent = CONFIG.GRAVITY_STRENGTH.toFixed(1);
+    if (gravitySlider) {
+        gravitySlider.value = CONFIG.GRAVITY_STRENGTH;
+        updateSliderFill(gravitySlider);
+    }
     
     if (omegamVal) omegamVal.textContent = state.omega_m.toFixed(2);
     if (omegamSlider) {
@@ -510,6 +559,30 @@ function loop(timestamp) {
     }
 }
 
+// Calculate Linear Growth Factor D(a) using Carroll, Press, & Turner (1992) approximation
+// D(a) = a * g(a), where g(a) is the growth suppression factor relative to EdS
+function calculateGrowthFactor(a, Om, Ol) {
+    // Avoid division by zero at a=0
+    if (a <= 0.001) return a;
+
+    const Ok = 1 - Om - Ol;
+    const E_sq = Om * Math.pow(a, -3) + Ol + Ok * Math.pow(a, -2);
+    
+    // Omega parameters at scale factor a
+    const Om_a = (Om * Math.pow(a, -3)) / E_sq;
+    const Ol_a = Ol / E_sq;
+    
+    // Fitting formula for g(a)
+    const numerator = 2.5 * Om_a;
+    const denominator = Math.pow(Om_a, 4/7) - Ol_a + (1 + Om_a/2) * (1 + Ol_a/70);
+    
+    const g = numerator / denominator;
+    
+    // For EdS (Om=1, Ol=0), g=1, so D(a)=a.
+    // For LambdaCDM, g < 1 at late times.
+    return a * g;
+}
+
 function draw() {
     if (!ctx) return;
     
@@ -529,9 +602,16 @@ function draw() {
     // We still use damping for the visual effect to keep things on screen
     const a_vis = Math.pow(a_real, 1 - CONFIG.EXPANSION_DAMPING);
     
+    // Comoving Scale Factor (Fixed at z=5 scale)
+    // This ensures the view covers the same volume as the start of the simulation
+    const a_comoving = Math.pow(1/6, 1 - CONFIG.EXPANSION_DAMPING);
+    
+    // Determine Render Scale based on Reference Frame
+    const renderScale = state.isComoving ? a_comoving : a_vis;
+    
     // Growth Factor D(z) - Approximation: proportional to scale factor in matter domination
     // For more accuracy we could solve the growth ODE, but a ~ D is fine for visuals
-    const growth = a_real; 
+    const growth = calculateGrowthFactor(a_real, state.omega_m, state.omega_lambda);
     
     // --- Rendering ---
     ctx.globalCompositeOperation = 'screen';
@@ -546,15 +626,15 @@ function draw() {
             const center = state.centers[i];
             if (!center) continue;
             
-            const sx = cx + center.x * a_vis;
-            const sy = cy + center.y * a_vis;
+            const sx = cx + center.x * renderScale;
+            const sy = cy + center.y * renderScale;
             
-            drawBAO(sx, sy, a_vis, growth, soundHorizonScale);
+            drawBAO(sx, sy, renderScale, growth, soundHorizonScale);
         }
     }
 
     if (state.showGalaxies) {
-        drawGalaxies(cx, cy, a_vis, growth, soundHorizonScale);
+        drawGalaxies(cx, cy, renderScale, growth, soundHorizonScale);
     }
     
     ctx.shadowBlur = 0;
@@ -585,7 +665,8 @@ function drawGalaxies(cx, cy, scale, growth, horizonScale) {
     if (!state.galaxies || state.galaxies.length === 0) return;
     
     // Galaxy brightness increases with growth (structure formation)
-    const opacity = Math.max(0.4, Math.min(1, growth + 0.2));
+    // In Comoving frame, we want max luminosity by default to avoid the "glowing increase" effect.
+    const opacity = state.isComoving ? 1.0 : Math.max(0.4, Math.min(1, growth + 0.2));
     
     state.galaxies.forEach(g => {
         let x, y;
@@ -604,7 +685,15 @@ function drawGalaxies(cx, cy, scale, growth, horizonScale) {
             
             // Calculate position relative to center
             const r_s = CONFIG.COMOVING_RADIUS * horizonScale;
-            const r_comoving = (g.r_base * r_s) + g.offsetR;
+            
+            // Gravity Effect (Zeldovich-like sharpening)
+            // As structure grows (growth increases), galaxies fall towards the density peaks.
+            // This reduces the scatter (offsetR) over time.
+            const gravityFactor = 1 - (CONFIG.GRAVITY_STRENGTH * growth);
+            const effectiveGravity = Math.max(0.2, gravityFactor); // Clamp to avoid collapse
+            
+            const currentOffsetR = g.offsetR * effectiveGravity;
+            const r_comoving = (g.r_base * r_s) + currentOffsetR;
             
             // Convert to screen coordinates
             const r_screen = r_comoving * scale;
@@ -646,7 +735,13 @@ function drawBAO(x, y, scale, growth, horizonScale = 1.0) {
     const centerRadius = Math.max(0.1, CONFIG.CENTER_RADIUS_BASE * scale);
     const r_vis = Math.max(0.1, CONFIG.COMOVING_RADIUS * scale * horizonScale);
     const shellWidth = Math.max(0.1, CONFIG.RING_WIDTH_BASE * scale); 
-    const opacity = Math.max(0, Math.min(1, growth)); 
+    
+    // In Comoving frame, we want fixed opacity (no growth fading), but reduced intensity (50%)
+    // In Physical frame, opacity grows with time (growth factor)
+    let opacity = Math.max(0, Math.min(1, growth)); 
+    if (state.isComoving) {
+        opacity = 1.0;
+    }
 
     // We draw the entire density profile (Center + Ring) as a single radial gradient
     // to simulate a heatmap / diffusion effect.
@@ -657,16 +752,20 @@ function drawBAO(x, y, scale, growth, horizonScale = 1.0) {
     try {
         const g = ctx.createRadialGradient(x, y, 0, x, y, maxRadius);
         
+        // In Comoving frame, we reduce the "glow" effect to make it look more like a density map
+        // and less like a glowing neon effect, as requested.
+        const glowFactor = state.isComoving ? 0.5 : 1.0;
+
         // 1. Central Peak (High Density)
-        g.addColorStop(0, `rgba(${CONFIG.CENTER_HOT_COLOR}, ${opacity * 0.9})`);
-        g.addColorStop(centerRadius / maxRadius, `rgba(${CONFIG.CENTER_HALO_COLOR}, ${opacity * 0.4})`);
+        g.addColorStop(0, `rgba(${CONFIG.CENTER_HOT_COLOR}, ${opacity * 0.9 * glowFactor})`);
+        g.addColorStop(centerRadius / maxRadius, `rgba(${CONFIG.CENTER_HALO_COLOR}, ${opacity * 0.4 * glowFactor})`);
         
         // 2. Gap (Low Density)
         g.addColorStop((r_vis - shellWidth) / maxRadius, `rgba(${CONFIG.RING_BASE_COLOR}, 0.05)`);
         
         // 3. BAO Ring (Overdensity at Sound Horizon)
         // We use a soft peak for the ring
-        g.addColorStop(r_vis / maxRadius, `rgba(${CONFIG.RING_GLOW_COLOR}, ${opacity * 0.3})`);
+        g.addColorStop(r_vis / maxRadius, `rgba(${CONFIG.RING_GLOW_COLOR}, ${opacity * 0.3 * glowFactor})`);
         
         // 4. Falloff
         g.addColorStop(1, 'rgba(0,0,0,0)');

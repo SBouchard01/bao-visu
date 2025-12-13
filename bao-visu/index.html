@@ -34,7 +34,7 @@
                         Redshift Evolution
                         <span id="z-val" class="value-display">5.00</span>
                     </div>
-                    <div class="full-width-slider-container" style="margin-bottom: 10px;">
+                    <div class="full-width-slider-container" style="margin-bottom: 5px;">
                         <!-- RTL Slider: Min(0)=Right, Max(5)=Left -->
                         <input type="range" id="z-slider" min="0" max="5" step="0.01" value="5" class="slider-rtl">
                     </div>
@@ -114,6 +114,15 @@
                 <div class="control-box">
                     <div class="box-header">Simulation</div>
                     
+                    <!-- Reference Frame Toggle -->
+                    <div class="toggle-group-container">
+                        <label class="toggle-group-label">Reference Frame</label>
+                        <div class="toggle-group">
+                            <button id="frame-physical-btn" class="toggle-btn active">Physical</button>
+                            <button id="frame-comoving-btn" class="toggle-btn">Comoving</button>
+                        </div>
+                    </div>
+
                     <div class="full-width-slider-container">
                         <div class="slider-label-row">
                             <label>Galaxy Number</label>
@@ -124,13 +133,21 @@
 
                     <div class="full-width-slider-container">
                         <div class="slider-label-row">
+                            <label>Gravity Strength</label>
+                            <span id="gravity-val" class="value-display">0.7</span>
+                        </div>
+                        <input type="range" id="gravity-slider" min="0" max="2" step="0.1" value="0.7">
+                    </div>
+
+                    <div class="full-width-slider-container">
+                        <div class="slider-label-row">
                             <label>Ring Count</label>
                             <span id="bao-val" class="value-display">1</span>
                         </div>
                         <input type="range" id="bao-slider" min="1" max="100" value="1">
                     </div>
 
-                    <button id="shuffle-btn" class="secondary-btn">
+                    <button id="shuffle-btn" class="secondary-btn" style="margin-top: 5px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;">
                             <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
                         </svg>
