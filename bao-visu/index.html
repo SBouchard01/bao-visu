@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BAO Visualization - Step 1</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="tour.css">
 </head>
 <body>
 
@@ -308,6 +309,10 @@
                     Reset All Settings
                 </button>
 
+                <button id="start-tour-btn" class="secondary-btn" style="width: 100%; margin-top: 5px; border-color: #4cc9f0; color: #4cc9f0;">
+                    Start Guided Tour
+                </button>
+
                 <div class="disclaimer-text">
                     Note: This visualization is for educational purposes and simplifies complex cosmological phenomena. It is not a physically rigorous simulation.
                     <br><br>
@@ -380,9 +385,32 @@
 
     <canvas id="sim-canvas"></canvas>
 
+    <!-- Tour Overlay -->
+    <div id="tour-overlay" class="glass-panel hidden">
+        <div class="tour-header">
+            <h3 id="tour-title">Tour Step Title</h3>
+            <button id="tour-close-btn" class="icon-btn-small">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="tour-content" class="tour-content">
+            <!-- Text content goes here -->
+        </div>
+        <div class="tour-controls">
+            <span id="tour-progress">1 / 5</span>
+            <div class="tour-buttons">
+                <button id="tour-prev-btn" class="secondary-btn small">Previous</button>
+                <button id="tour-next-btn" class="primary-btn small">Next</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Global Tooltip -->
     <div id="global-tooltip" class="global-tooltip"></div>
 
     <script src="script.js"></script>
+    <script src="tour.js"></script>
 </body>
 </html>
