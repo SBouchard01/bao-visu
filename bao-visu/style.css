@@ -7,6 +7,11 @@ body, html {
     background-color: #000;
     font-family: 'Segoe UI', sans-serif;
     color: white;
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
 }
 
 /* --- UI Container & Layout --- */
@@ -21,6 +26,64 @@ body, html {
     align-items: flex-start;
     gap: 0; /* No gap, panels touch */
     z-index: 100;
+    pointer-events: none; /* Allow clicks to pass through to canvas */
+}
+
+/* Make children interactive */
+#ui-container > * {
+    pointer-events: auto;
+}
+
+/* Floating Plot */
+.floating-plot {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 260px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 110;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.floating-plot.hidden {
+    opacity: 0;
+    transform: translateY(-20px);
+    pointer-events: none;
+}
+
+.plot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #4cc9f0;
+    /* text-transform: uppercase; Removed to allow Greek letters */
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.icon-btn-small {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.icon-btn-small:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
 }
 
 /* Glassmorphism Base */
@@ -37,7 +100,7 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 15px 5px;
+    padding: 15px 5px 40px 5px; /* Increased bottom padding */
     width: 50px; 
     gap: 15px;
     flex-shrink: 0;
@@ -112,10 +175,10 @@ body, html {
 }
 
 .panel-content {
-    padding: 20px;
+    padding: 15px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 8px;
     width: 100%; /* Ensure it fits within parent */
     box-sizing: border-box; /* Include padding in width */
     overflow-y: auto; /* Allow scrolling if needed */
@@ -127,13 +190,13 @@ body, html {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 8px;
-    padding: 6px; /* Further reduced padding */
+    padding: 5px; /* Further reduced padding */
     display: flex;
     flex-direction: column;
-    gap: 4px; /* Further reduced gap */
+    gap: 3px; /* Further reduced gap */
     width: 100%; /* Ensure it fits within parent */
     box-sizing: border-box; /* Include padding in width */
-    margin-bottom: 4px; /* Reduced margin */
+    margin-bottom: 2px; /* Reduced margin */
 }
 
 .box-header {
@@ -403,6 +466,7 @@ button.secondary-btn:hover {
 .layer-checkbox-container {
     display: flex;
     flex-direction: row; /* Side by side */
+    flex-wrap: wrap; /* Allow wrapping to prevent overflow */
     gap: 10px;
     margin-top: 5px;
 }
@@ -570,4 +634,102 @@ input:checked + .slider:before {
 
 canvas {
     display: block;
+}
+
+/* --- Info Bubbles & Tooltips --- */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    color: #666;
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+    transition: color 0.2s;
+}
+
+.info-icon:hover {
+    color: #4cc9f0;
+}
+
+/* Hide original tooltips as we use JS global tooltip now */
+.tooltip {
+    display: none;
+}
+
+.global-tooltip {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    background-color: rgba(10, 10, 20, 0.95);
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 12px;
+    z-index: 9999; /* Very high z-index */
+    font-size: 0.75rem;
+    font-weight: normal;
+    text-transform: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    pointer-events: none;
+    transition: opacity 0.2s;
+    max-width: 220px;
+    width: max-content;
+}
+
+.global-tooltip.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* --- Plot Animation State --- */
+.floating-plot.collapsing {
+    transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+    opacity: 0;
+    pointer-events: none;
+    /* Transform will be set via JS */
+}
+
+/* Sidebar Button States */
+#sidebar-plot-btn {
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+#sidebar-plot-btn.inactive {
+    opacity: 0.3;
+    pointer-events: none;
+    transform: scale(0.8);
+}
+
+/* --- Cosmology Presets --- */
+.preset-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 8px;
+    justify-content: space-between;
+}
+
+.preset-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(224, 170, 255, 0.3); /* Light purple border */
+    color: #e0aaff;
+    padding: 4px 0;
+    font-size: 0.7rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.preset-btn:hover {
+    background: rgba(224, 170, 255, 0.15);
+    color: #fff;
+    border-color: #e0aaff;
+}
+
+.preset-btn:active {
+    transform: translateY(1px);
 }

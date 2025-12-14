@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
 const canvas = document.getElementById('sim-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
 
+const correlationCanvas = document.getElementById('correlation-canvas');
+const correlationCtx = correlationCanvas ? correlationCanvas.getContext('2d') : null;
+
 // Controls
 const zSlider = document.getElementById('z-slider');
 const zVal = document.getElementById('z-val');
@@ -34,15 +37,31 @@ const sidebarPlayBtn = document.getElementById('sidebar-play-btn');
 const sidebarResetBtn = document.getElementById('sidebar-reset-btn');
 const sidebarDensityBtn = document.getElementById('sidebar-density-btn');
 const sidebarGalaxiesBtn = document.getElementById('sidebar-galaxies-btn');
+const sidebarHorizonBtn = document.getElementById('sidebar-horizon-btn');
+const sidebarPlotBtn = document.getElementById('sidebar-plot-btn');
 const settingsPanel = document.getElementById('settings-panel');
 
 // Layer Controls
 const layerDensityToggle = document.getElementById('layer-density-toggle');
 const layerGalaxiesToggle = document.getElementById('layer-galaxies-toggle');
+const layerHeatmapToggle = document.getElementById('layer-heatmap-toggle');
+const layerHorizonToggle = document.getElementById('layer-horizon-toggle');
+const layerPlotToggle = document.getElementById('layer-plot-toggle');
+const correlationContainer = document.getElementById('correlation-container');
+const closePlotBtn = document.getElementById('close-plot-btn');
 
 // Reference Frame Controls
 const framePhysicalBtn = document.getElementById('frame-physical-btn');
 const frameComovingBtn = document.getElementById('frame-comoving-btn');
+
+// RSD Controls
+const viewRealBtn = document.getElementById('view-real-btn');
+const viewRsdBtn = document.getElementById('view-rsd-btn');
+const sidebarRsdBtn = document.getElementById('sidebar-rsd-btn');
+
+// Galaxy Render Mode Controls
+const renderPointsBtn = document.getElementById('render-points-btn');
+const renderHeatmapBtn = document.getElementById('render-heatmap-btn');
 
 // Cosmology Controls
 const omegamSlider = document.getElementById('omegam-slider');
@@ -62,7 +81,7 @@ const CONFIG = {
     TIME_SPEED: 0.005, // Adjusted for Friedmann evolution
     
     // Simulation
-    MAX_BAO_COUNT: 100,        
+    MAX_BAO_COUNT: 200,        
     UNIVERSE_SIZE: 4000, // Large area for background galaxies
     CENTER_SPAWN_RANGE: 1200, // Restricted area for BAO centers to keep them on screen
     
@@ -94,6 +113,10 @@ const CONFIG = {
     RING_BLUR_BASE: 40
 };
 
+// Icons
+const ICON_POINTS = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(30 12 12)"/></svg>`;
+const ICON_HEATMAP = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg>`;
+
 const state = {
     z: 5.0,
     a: 1/6, // a = 1/(1+z)
@@ -106,8 +129,12 @@ const state = {
     // Layers
     showDensity: true,
     showGalaxies: true,
+    showHorizon: false,
+    showPlot: true,
     galaxyDensity: 1.0,
     isComoving: false, // New state for reference frame
+    showRSD: false, // Redshift Space Distortions
+    renderMode: 'points', // 'points' or 'heatmap'
     
     // Cosmology
     omega_m: 0.3,
@@ -154,8 +181,22 @@ function init() {
         draw();
     };
     const toggleGalaxies = () => {
-        state.showGalaxies = !state.showGalaxies;
+        // Loop: Off -> Points -> Heatmap -> Off
+        if (!state.showGalaxies) {
+            // Off -> Points
+            state.showGalaxies = true;
+            state.renderMode = 'points';
+        } else if (state.renderMode === 'points') {
+            // Points -> Heatmap
+            state.showGalaxies = true;
+            state.renderMode = 'heatmap';
+        } else {
+            // Heatmap -> Off
+            state.showGalaxies = false;
+            state.renderMode = 'points'; // Reset to default when off
+        }
         updateLayerUI();
+        updateRenderModeUI();
         draw();
     };
 
@@ -168,10 +209,173 @@ function init() {
 
     if (layerGalaxiesToggle) layerGalaxiesToggle.addEventListener('change', (e) => {
         state.showGalaxies = e.target.checked;
+        // If turning on via checkbox, default to points if not set
+        if (state.showGalaxies && !state.renderMode) state.renderMode = 'points';
         updateLayerUI();
+        updateRenderModeUI();
         draw();
     });
     if (sidebarGalaxiesBtn) sidebarGalaxiesBtn.addEventListener('click', toggleGalaxies);
+
+    if (layerHorizonToggle) layerHorizonToggle.addEventListener('change', (e) => {
+        state.showHorizon = e.target.checked;
+        updateLayerUI();
+        draw();
+    });
+    
+    const toggleHorizon = () => {
+        state.showHorizon = !state.showHorizon;
+        updateLayerUI();
+        draw();
+    };
+    if (sidebarHorizonBtn) sidebarHorizonBtn.addEventListener('click', toggleHorizon);
+
+    // Plot Toggle
+    const togglePlot = (show) => {
+        state.showPlot = show;
+        
+        if (show) {
+            // Opening with animation (Reverse of closing)
+            if (sidebarPlotBtn && correlationContainer) {
+                // 1. Ensure it's visible but in the "closed" state (at button position)
+                correlationContainer.classList.remove('hidden');
+                
+                // We need to calculate where it SHOULD be naturally to know the delta
+                // But since it's fixed position top:20, left:20, we know its target.
+                // However, to be safe, we can let the browser layout it, then apply the transform.
+                
+                const plotRect = correlationContainer.getBoundingClientRect();
+                const btnRect = sidebarPlotBtn.getBoundingClientRect();
+                
+                const plotCenterX = plotRect.left + plotRect.width / 2;
+                const plotCenterY = plotRect.top + plotRect.height / 2;
+                const btnCenterX = btnRect.left + btnRect.width / 2;
+                const btnCenterY = btnRect.top + btnRect.height / 2;
+                
+                const dx = btnCenterX - plotCenterX;
+                const dy = btnCenterY - plotCenterY;
+                
+                // Set start state (at button)
+                correlationContainer.style.transition = 'none'; // Disable transition for instant setup
+                correlationContainer.style.transform = `translate(${dx}px, ${dy}px) scale(0.1)`;
+                correlationContainer.style.opacity = '0';
+                
+                // Force reflow
+                correlationContainer.offsetHeight;
+                
+                // Animate to end state (natural position)
+                correlationContainer.classList.add('collapsing'); // Re-use transition class
+                correlationContainer.style.transition = ''; // Re-enable CSS transition
+                correlationContainer.style.transform = '';
+                correlationContainer.style.opacity = '1';
+                
+                // Cleanup class after animation
+                setTimeout(() => {
+                    correlationContainer.classList.remove('collapsing');
+                }, 500);
+            } else {
+                correlationContainer.classList.remove('hidden');
+            }
+            
+            if (layerPlotToggle) layerPlotToggle.checked = true;
+            if (sidebarPlotBtn) sidebarPlotBtn.classList.add('inactive');
+        } else {
+            // Closing with animation
+            if (sidebarPlotBtn && correlationContainer && !correlationContainer.classList.contains('hidden')) {
+                const plotRect = correlationContainer.getBoundingClientRect();
+                const btnRect = sidebarPlotBtn.getBoundingClientRect();
+                
+                // Calculate center points
+                const plotCenterX = plotRect.left + plotRect.width / 2;
+                const plotCenterY = plotRect.top + plotRect.height / 2;
+                const btnCenterX = btnRect.left + btnRect.width / 2;
+                const btnCenterY = btnRect.top + btnRect.height / 2;
+                
+                const dx = btnCenterX - plotCenterX;
+                const dy = btnCenterY - plotCenterY;
+                
+                correlationContainer.classList.add('collapsing');
+                correlationContainer.style.transform = `translate(${dx}px, ${dy}px) scale(0.1)`;
+                correlationContainer.style.opacity = '0';
+                
+                // After animation, hide it properly
+                setTimeout(() => {
+                    if (!state.showPlot) { // Check if still closed
+                        correlationContainer.classList.add('hidden');
+                        correlationContainer.classList.remove('collapsing');
+                        correlationContainer.style.transform = '';
+                        correlationContainer.style.opacity = '';
+                    }
+                }, 500); // Match CSS transition time
+            } else {
+                correlationContainer.classList.add('hidden');
+            }
+            
+            if (layerPlotToggle) layerPlotToggle.checked = false;
+            if (sidebarPlotBtn) sidebarPlotBtn.classList.remove('inactive');
+        }
+        draw();
+    };
+
+    // Initialize button state
+    if (state.showPlot && sidebarPlotBtn) {
+        sidebarPlotBtn.classList.add('inactive');
+    }
+
+    // --- Global Tooltip Logic ---
+    const globalTooltip = document.getElementById('global-tooltip');
+    const infoIcons = document.querySelectorAll('.info-icon');
+
+    if (globalTooltip) {
+        infoIcons.forEach(icon => {
+            const tooltipText = icon.querySelector('.tooltip')?.textContent;
+            if (!tooltipText) return;
+
+            icon.addEventListener('mouseenter', () => {
+                globalTooltip.textContent = tooltipText;
+                globalTooltip.classList.add('visible');
+            });
+
+            icon.addEventListener('mousemove', (e) => {
+                // Position tooltip near mouse, but ensure it doesn't go off screen
+                const offset = 15;
+                let x = e.clientX + offset;
+                let y = e.clientY + offset;
+                
+                // Check boundaries
+                const tooltipRect = globalTooltip.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                // Right edge check
+                if (x + tooltipRect.width > viewportWidth) {
+                    x = e.clientX - tooltipRect.width - offset;
+                }
+
+                // Bottom edge check
+                if (y + tooltipRect.height > viewportHeight) {
+                    y = e.clientY - tooltipRect.height - offset;
+                }
+                
+                globalTooltip.style.left = x + 'px';
+                globalTooltip.style.top = y + 'px';
+            });
+
+            icon.addEventListener('mouseleave', () => {
+                globalTooltip.classList.remove('visible');
+            });
+        });
+    }
+
+    if (layerPlotToggle) layerPlotToggle.addEventListener('change', (e) => {
+        togglePlot(e.target.checked);
+    });
+    if (closePlotBtn) closePlotBtn.addEventListener('click', () => {
+        togglePlot(false);
+    });
+    if (sidebarPlotBtn) sidebarPlotBtn.addEventListener('click', () => {
+        togglePlot(true);
+    });
 
     // Layout Toggles
     if (sidebarLogoBtn) {
@@ -280,10 +484,100 @@ function init() {
             }
         });
     }
+
+    // Galaxy Render Mode Listeners
+    if (renderPointsBtn && renderHeatmapBtn) {
+        renderPointsBtn.addEventListener('click', () => {
+            state.renderMode = 'points';
+            state.showGalaxies = true; // Ensure visible
+            updateLayerUI();
+            updateRenderModeUI();
+            draw();
+        });
+        renderHeatmapBtn.addEventListener('click', () => {
+            state.renderMode = 'heatmap';
+            state.showGalaxies = true; // Ensure visible
+            updateLayerUI();
+            updateRenderModeUI();
+            draw();
+        });
+    }
     
+    // Reset All Button
+    const resetAllBtn = document.getElementById('reset-all-btn');
+    if (resetAllBtn) {
+        resetAllBtn.addEventListener('click', resetAllSettings);
+    }
+
+    // Cosmology Presets
+
+    // Cosmology Presets
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const m = parseFloat(btn.dataset.m);
+            const l = parseFloat(btn.dataset.l);
+            
+            state.omega_m = m;
+            state.omega_lambda = l;
+            
+            // Check if flat (tolerance for floating point)
+            const isFlat = Math.abs((m + l) - 1.0) < 0.01;
+            state.isFlat = isFlat;
+            if (flatToggle) flatToggle.checked = isFlat;
+            
+            updateUI();
+            draw();
+        });
+    });
+    
+    // RSD Listeners
+    const setRSD = (enabled) => {
+        state.showRSD = enabled;
+        updateUI();
+        draw();
+    };
+    
+    if (viewRealBtn) viewRealBtn.addEventListener('click', () => setRSD(false));
+    if (viewRsdBtn) viewRsdBtn.addEventListener('click', () => setRSD(true));
+    if (sidebarRsdBtn) sidebarRsdBtn.addEventListener('click', () => setRSD(!state.showRSD));
+
     updateUI();
     draw();
     console.log("Initialization complete");
+}
+
+function resetAllSettings() {
+    // Reset State
+    state.z = 5.0;
+    state.playing = false;
+    state.baoCount = 1;
+    state.showDensity = true;
+    state.showGalaxies = true;
+    state.showHorizon = false;
+    state.showPlot = true;
+    state.galaxyDensity = 1.0;
+    state.isComoving = false;
+    state.showRSD = false;
+    state.renderMode = 'points';
+    state.omega_m = 0.3;
+    state.omega_lambda = 0.7;
+    state.isFlat = true;
+    
+    // Reset Config
+    CONFIG.GRAVITY_STRENGTH = 0.2;
+    
+    // Update Physics
+    updatePhysicsStateFromZ(state.z);
+    
+    // Regenerate
+    shuffleCenters();
+    
+    // Update UI
+    updatePlayButtons();
+    updateUI();
+    updateRenderModeUI();
+    draw();
 }
 
 function updatePhysicsStateFromZ(z) {
@@ -329,10 +623,11 @@ function generateGalaxies() {
         const sizeVar = 0.8 + Math.random() * 0.6; // 0.8 to 1.4
         const eccentricity = 0.5 + Math.random() * 0.5; // 0.5 to 1.0 (1 = circle)
         const rotation = Math.random() * Math.PI;
+        const fogFactor = (Math.random() - 0.5); // Pre-calculate random factor for RSD
         
         return {
             type, centerIndex, r_base, angle, offsetR, offsetAngle, x, y,
-            color, sizeVar, eccentricity, rotation
+            color, sizeVar, eccentricity, rotation, fogFactor
         };
     };
     
@@ -426,6 +721,8 @@ function updatePlayButtons() {
 function updateLayerUI() {
     if (layerDensityToggle) layerDensityToggle.checked = state.showDensity;
     if (layerGalaxiesToggle) layerGalaxiesToggle.checked = state.showGalaxies;
+    if (layerHorizonToggle) layerHorizonToggle.checked = state.showHorizon;
+    if (layerPlotToggle) layerPlotToggle.checked = state.showPlot;
     
     if (sidebarDensityBtn) {
         if (state.showDensity) sidebarDensityBtn.classList.add('active');
@@ -433,8 +730,32 @@ function updateLayerUI() {
     }
     
     if (sidebarGalaxiesBtn) {
-        if (state.showGalaxies) sidebarGalaxiesBtn.classList.add('active');
-        else sidebarGalaxiesBtn.classList.remove('active');
+        if (state.showGalaxies) {
+            sidebarGalaxiesBtn.classList.add('active');
+            // Update Icon based on Render Mode
+            const targetMode = state.renderMode; // 'points' or 'heatmap'
+            if (sidebarGalaxiesBtn.dataset.iconMode !== targetMode) {
+                sidebarGalaxiesBtn.innerHTML = targetMode === 'heatmap' ? ICON_HEATMAP : ICON_POINTS;
+                sidebarGalaxiesBtn.dataset.iconMode = targetMode;
+            }
+        } else {
+            sidebarGalaxiesBtn.classList.remove('active');
+            // Default to points icon when off
+            if (sidebarGalaxiesBtn.dataset.iconMode !== 'points') {
+                sidebarGalaxiesBtn.innerHTML = ICON_POINTS;
+                sidebarGalaxiesBtn.dataset.iconMode = 'points';
+            }
+        }
+    }
+
+    if (sidebarHorizonBtn) {
+        if (state.showHorizon) sidebarHorizonBtn.classList.add('active');
+        else sidebarHorizonBtn.classList.remove('active');
+    }
+
+    if (sidebarPlotBtn) {
+        if (state.showPlot) sidebarPlotBtn.classList.add('inactive');
+        else sidebarPlotBtn.classList.remove('inactive');
     }
 }
 
@@ -450,9 +771,40 @@ function updateFrameUI() {
     }
 }
 
+function updateViewUI() {
+    if (viewRealBtn && viewRsdBtn) {
+        if (state.showRSD) {
+            viewRealBtn.classList.remove('active');
+            viewRsdBtn.classList.add('active');
+        } else {
+            viewRealBtn.classList.add('active');
+            viewRsdBtn.classList.remove('active');
+        }
+    }
+    
+    if (sidebarRsdBtn) {
+        if (state.showRSD) sidebarRsdBtn.classList.add('active');
+        else sidebarRsdBtn.classList.remove('active');
+    }
+}
+
+function updateRenderModeUI() {
+    if (renderPointsBtn && renderHeatmapBtn) {
+        if (state.renderMode === 'heatmap') {
+            renderPointsBtn.classList.remove('active');
+            renderHeatmapBtn.classList.add('active');
+        } else {
+            renderPointsBtn.classList.add('active');
+            renderHeatmapBtn.classList.remove('active');
+        }
+    }
+}
+
 function updateUI() {
     updateLayerUI();
     updateFrameUI();
+    updateViewUI();
+    updateRenderModeUI();
     if (zVal) zVal.textContent = state.z.toFixed(2);
     if (zSlider) {
         // Direct mapping for RTL slider
@@ -621,6 +973,12 @@ function draw() {
     // We normalize to Omega_m = 0.3
     const soundHorizonScale = Math.pow(0.3 / Math.max(0.01, state.omega_m), 0.25);
     
+    // Calculate RSD Strength (Squashing Factor)
+    // Same logic as in drawGalaxies
+    const rsdStrength = state.showRSD ? (CONFIG.GRAVITY_STRENGTH * growth * 0.8) : 0;
+    // Clamp scale to avoid inversion (min 0.2)
+    const rsdScaleY = Math.max(0.2, 1 - rsdStrength);
+
     if (state.showDensity) {
         for (let i = 0; i < state.baoCount; i++) {
             const center = state.centers[i];
@@ -629,7 +987,7 @@ function draw() {
             const sx = cx + center.x * renderScale;
             const sy = cy + center.y * renderScale;
             
-            drawBAO(sx, sy, renderScale, growth, soundHorizonScale);
+            drawBAO(sx, sy, renderScale, growth, soundHorizonScale, rsdScaleY);
         }
     }
 
@@ -637,6 +995,34 @@ function draw() {
         drawGalaxies(cx, cy, renderScale, growth, soundHorizonScale);
     }
     
+    // Draw Theoretical Sound Horizon (Overlay)
+    if (state.showHorizon) {
+        // We draw it around the central peak (index 0) which is always at (cx, cy)
+        // Radius = r_s * scale
+        // r_s = CONFIG.COMOVING_RADIUS * soundHorizonScale
+        const r_horizon = CONFIG.COMOVING_RADIUS * soundHorizonScale * renderScale;
+        
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]); // Dashed line
+        
+        if (state.showRSD) {
+            // Draw Ellipse if RSD is on
+            ctx.ellipse(cx, cy, r_horizon, r_horizon * rsdScaleY, 0, 0, Math.PI * 2);
+        } else {
+            ctx.arc(cx, cy, r_horizon, 0, Math.PI * 2);
+        }
+        
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset
+        
+        // Label
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '12px sans-serif';
+        ctx.fillText("Sound Horizon (rs)", cx + r_horizon + 5, cy);
+    }
+
     ctx.shadowBlur = 0;
     ctx.globalCompositeOperation = 'source-over';
     
@@ -659,6 +1045,180 @@ function draw() {
     ctx.fillText(`z = ${state.z.toFixed(2)}`, 20, h - 60);
     ctx.fillText(`Expansion Rate H(z) = ${E.toFixed(2)} H₀`, 20, h - 40);
     ctx.fillText(`Scale Factor a = ${a_real.toFixed(3)}`, 20, h - 20);
+
+    // Update Correlation Plot
+    if (state.showPlot) {
+        updateCorrelationPlot(growth, soundHorizonScale);
+    }
+}
+
+function updateCorrelationPlot(growth, horizonScale) {
+    if (!correlationCtx || !state.galaxies) return;
+    
+    const w = correlationCanvas.width;
+    const h = correlationCanvas.height;
+    
+    // Clear
+    correlationCtx.clearRect(0, 0, w, h);
+    
+    // Parameters
+    const maxDist = CONFIG.COMOVING_RADIUS * 2.0; // Plot up to 2x sound horizon
+    const binCount = 50;
+    const binSize = maxDist / binCount;
+    const bins = new Array(binCount).fill(0);
+    
+    // Expansion Factor for Physical Frame
+    // If in Comoving frame, we ignore expansion (factor = 1.0)
+    // If in Physical frame, distances scale with a(t)
+    const expansionFactor = state.isComoving ? 1.0 : state.a;
+
+    // Calculate distances from galaxies to their centers
+    // We use the same logic as drawGalaxies to get the current "physical" (but scaled back to comoving) position
+    const r_s = CONFIG.COMOVING_RADIUS * horizonScale;
+    const gravityFactor = 1 - (CONFIG.GRAVITY_STRENGTH * growth);
+    const effectiveGravity = Math.max(0.2, gravityFactor);
+    
+    let totalCount = 0;
+    
+    state.galaxies.forEach(g => {
+        if (g.type === 'background') return; // Skip background for this specific "Stacked" plot to see the signal clearly
+        if (g.centerIndex >= state.baoCount) return;
+        
+        // Calculate current radial distance from center (Comoving)
+        const currentOffsetR = g.offsetR * effectiveGravity;
+        const r_comoving = (g.r_base * r_s) + currentOffsetR;
+        
+        // Apply Expansion if needed
+        const r_plot = r_comoving * expansionFactor;
+        
+        // Binning
+        if (r_plot < maxDist) {
+            const binIndex = Math.floor(r_plot / binSize);
+            if (binIndex >= 0 && binIndex < binCount) {
+                bins[binIndex]++;
+                totalCount++;
+            }
+        }
+    });
+    
+    // Normalize by shell area (2 * pi * r * dr) to get density
+    // If we don't normalize, we just see N(r) which increases with r linearly for uniform distribution
+    const density = bins.map((count, i) => {
+        const r = (i + 0.5) * binSize;
+        const area = 2 * Math.PI * r * binSize;
+        return count / area;
+    });
+    
+    // Find max density for scaling (ignore first bin which is the central peak)
+    let maxDensity = 0;
+    for (let i = 2; i < binCount; i++) {
+        if (density[i] > maxDensity) maxDensity = density[i];
+    }
+    if (maxDensity === 0) maxDensity = 1;
+    
+    // Margins for axes
+    const marginLeft = 20;
+    const marginBottom = 20;
+    const axisPadding = 2; // Padding between curve and axis
+    const plotW = w - marginLeft;
+    const plotH = h - marginBottom - axisPadding;
+
+    // Draw Axes
+    correlationCtx.beginPath();
+    correlationCtx.strokeStyle = '#666';
+    correlationCtx.lineWidth = 1.5;
+    
+    // Y-Axis
+    correlationCtx.moveTo(marginLeft, h - marginBottom); // Start at bottom
+    correlationCtx.lineTo(marginLeft, 0); // Draw to top
+    // Y-Axis Arrow
+    correlationCtx.moveTo(marginLeft, 0);
+    correlationCtx.lineTo(marginLeft - 3, 5);
+    correlationCtx.moveTo(marginLeft, 0);
+    correlationCtx.lineTo(marginLeft + 3, 5);
+
+    // X-Axis
+    correlationCtx.moveTo(marginLeft, h - marginBottom);
+    correlationCtx.lineTo(w, h - marginBottom);
+    // X-Axis Arrow
+    correlationCtx.moveTo(w, h - marginBottom);
+    correlationCtx.lineTo(w - 5, h - marginBottom - 3);
+    correlationCtx.moveTo(w, h - marginBottom);
+    correlationCtx.lineTo(w - 5, h - marginBottom + 3);
+    
+    correlationCtx.stroke();
+
+    // Draw Plot Curve
+    correlationCtx.beginPath();
+    correlationCtx.strokeStyle = '#4cc9f0';
+    correlationCtx.lineWidth = 1;
+    
+    for (let i = 0; i < binCount; i++) {
+        const x = marginLeft + (i / binCount) * plotW;
+        // Scale y: 0 at bottom, maxDensity at top (with some padding)
+        // We clamp the central peak so it doesn't squash the rest
+        const val = Math.min(density[i], maxDensity * 1.5); 
+        const y = (h - marginBottom - axisPadding) - (val / (maxDensity * 1.2)) * plotH;
+        
+        if (i === 0) correlationCtx.moveTo(x, y);
+        else correlationCtx.lineTo(x, y);
+    }
+    correlationCtx.stroke();
+    
+    // Draw Sound Horizon Marker
+    // The marker should also move in Physical frame
+    const r_s_plot = r_s * expansionFactor;
+    const x_s = marginLeft + (r_s_plot / maxDist) * plotW;
+
+    if (x_s < w) {
+        correlationCtx.beginPath();
+        correlationCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        correlationCtx.setLineDash([4, 4]);
+        correlationCtx.moveTo(x_s, 0);
+        correlationCtx.lineTo(x_s, h - marginBottom - axisPadding);
+        correlationCtx.stroke();
+        correlationCtx.setLineDash([]);
+        
+        // Labels
+        correlationCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        correlationCtx.font = '10px sans-serif';
+        correlationCtx.fillText('r_s', x_s + 4, 12);
+    }
+    
+    // Axis Names
+    correlationCtx.fillStyle = '#aaa';
+    correlationCtx.font = 'italic 12px serif';
+    correlationCtx.fillText('ξ(r)', 0, 12); // Y-axis label
+    correlationCtx.fillText('r', w - 10, h - 5); // X-axis label
+}
+
+function getHeatmapSprite(colorStr) {
+    if (heatmapSprites[colorStr]) return heatmapSprites[colorStr];
+
+    // Create new sprite
+    const size = 64; // Power of 2
+    const half = size / 2;
+    const spriteCanvas = document.createElement('canvas');
+    spriteCanvas.width = size;
+    spriteCanvas.height = size;
+    const sCtx = spriteCanvas.getContext('2d');
+
+    // Draw gradient
+    const grad = sCtx.createRadialGradient(half, half, 0, half, half, half);
+    // Core: More opaque to define structure
+    grad.addColorStop(0, `rgba(${colorStr}, 0.4)`);
+    // Mid: Soft falloff
+    grad.addColorStop(0.4, `rgba(${colorStr}, 0.1)`);
+    // Edge: Fade out
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    sCtx.fillStyle = grad;
+    sCtx.beginPath();
+    sCtx.arc(half, half, half, 0, Math.PI * 2);
+    sCtx.fill();
+
+    heatmapSprites[colorStr] = spriteCanvas;
+    return spriteCanvas;
 }
 
 function drawGalaxies(cx, cy, scale, growth, horizonScale) {
@@ -702,32 +1262,233 @@ function drawGalaxies(cx, cy, scale, growth, horizonScale) {
             const sx = cx + center.x * scale;
             const sy = cy + center.y * scale;
             
-            // Galaxy position
-            x = sx + r_screen * Math.cos(g.angle);
-            y = sy + r_screen * Math.sin(g.angle);
+            // Galaxy position (Real Space)
+            let gx = sx + r_screen * Math.cos(g.angle);
+            let gy = sy + r_screen * Math.sin(g.angle);
+
+            // --- Redshift Space Distortions (RSD) ---
+            if (state.showRSD) {
+                // Simple model: Infall velocity towards cluster center
+                // We assume Line of Sight (LoS) is the Y-axis (observer at bottom)
+                
+                // 1. Calculate velocity vector (infall)
+                // Direction is towards center: -radial vector
+                // Magnitude proportional to growth rate (f) and gravity strength
+                // v ~ f * gravity * r (linear theory) or just infall
+                
+                // For visual simplicity:
+                // Shift is proportional to the Y-component of the distance to center
+                // dy = y_galaxy - y_center
+                // v_y_infall = -dy * strength
+                
+                const dy = gy - sy;
+                
+                // Strength factor:
+                // - Increases with gravity strength
+                // - Increases with growth factor (structure formation)
+                // - Kaiser effect (squashing) on large scales
+                // - Fingers of God (elongation) on small scales (random virial motion)
+                
+                // Let's implement a "Kaiser-like" squashing for the ring
+                // Infall means galaxies move closer to center in Y-direction
+                // Apparent position Y' = Y + v_y / H
+                // If v_y is negative (falling down towards center), Y decreases.
+                
+                // We use a simplified shift:
+                // shift = -dy * factor
+                // If factor > 0, this pulls galaxies towards the center Y-line (Squashing)
+                
+                const rsdStrength = CONFIG.GRAVITY_STRENGTH * growth * 0.8;
+                // Clamp scale to avoid inversion (min 0.2)
+                gy = sy + dy * Math.max(0.2, 1 - rsdStrength); 
+                
+                // Add some random "Fingers of God" noise for the central cluster
+                if (g.r_base === 0) { // Central cluster
+                     const fog = g.fogFactor * 20 * growth;
+                     gy += fog;
+                }
+            }
+            
+            x = gx;
+            y = gy;
         }
         
         // Draw galaxy
-        const size = 1.5 * scale * g.sizeVar; 
-        const drawSize = Math.max(1.2, size);
-        
-        ctx.fillStyle = `rgba(${g.color}, ${opacity * (0.6 + Math.random() * 0.4)})`;
-        
-        ctx.beginPath();
-        if (g.eccentricity < 0.8 && drawSize > 2) {
-            // Draw ellipse for larger, inclined galaxies
-            ctx.ellipse(x, y, drawSize, drawSize * g.eccentricity, g.rotation, 0, Math.PI * 2);
+        if (state.renderMode === 'heatmap') {
+             // Heatmap Mode: Accumulate in grid (handled in batch below)
+             // We just store the position for the grid renderer
+             // But wait, we are inside a loop.
+             // To do a proper grid heatmap, we should do it after calculating all positions.
+             // However, to avoid refactoring the whole loop structure, let's push to a temp array
+             // or just use the "Colorized Lighter" approach which is visually similar to a heatmap
+             // but much faster than JS-based grid binning for 2000+ particles every frame?
+             // Actually, 2000 particles binning is instant in JS.
+             // Let's use the Grid approach for a "True Heatmap" look.
+             
+             // We need to store transformed positions to render the heatmap at the end
+             if (!state.heatmapPositions) state.heatmapPositions = [];
+             state.heatmapPositions.push({x, y});
+             
         } else {
-            // Draw circle for small or face-on galaxies
-            ctx.arc(x, y, drawSize, 0, Math.PI * 2);
+            // Standard Point Mode
+            const size = 1.5 * scale * g.sizeVar; 
+            const drawSize = Math.max(1.2, size);
+            
+            ctx.fillStyle = `rgba(${g.color}, ${opacity * (0.6 + Math.random() * 0.4)})`;
+            
+            ctx.beginPath();
+            if (g.eccentricity < 0.8 && drawSize > 2) {
+                // Draw ellipse for larger, inclined galaxies
+                ctx.ellipse(x, y, drawSize, drawSize * g.eccentricity, g.rotation, 0, Math.PI * 2);
+            } else {
+                // Draw circle for small or face-on galaxies
+                ctx.arc(x, y, drawSize, 0, Math.PI * 2);
+            }
+            ctx.fill();
         }
-        ctx.fill();
     });
+    
+    // Render Heatmap if needed
+    if (state.renderMode === 'heatmap' && state.heatmapPositions) {
+        renderHeatmapGrid(state.heatmapPositions);
+        state.heatmapPositions = []; // Clear
+    }
     
     ctx.globalAlpha = 1.0;
 }
 
-function drawBAO(x, y, scale, growth, horizonScale = 1.0) {
+// Offscreen canvas for heatmap generation
+const heatmapCanvas = document.createElement('canvas');
+const heatmapCtx = heatmapCanvas.getContext('2d');
+
+function renderHeatmapGrid(positions) {
+    if (!positions.length) return;
+    
+    // Resolution Scaling (1/4 screen size for performance + smoothing)
+    const scale = 0.25;
+    const w = Math.ceil(canvas.width * scale);
+    const h = Math.ceil(canvas.height * scale);
+    
+    if (heatmapCanvas.width !== w || heatmapCanvas.height !== h) {
+        heatmapCanvas.width = w;
+        heatmapCanvas.height = h;
+    }
+    
+    const cols = w;
+    const rows = h;
+    const grid = new Float32Array(cols * rows);
+    
+    // 1. Binning
+    for (let i = 0; i < positions.length; i++) {
+        const p = positions[i];
+        // Scale position to grid coordinates
+        const gx = p.x * scale;
+        const gy = p.y * scale;
+        
+        if (gx < 0 || gx >= w || gy < 0 || gy >= h) continue;
+        
+        const c = Math.floor(gx);
+        const r = Math.floor(gy);
+        grid[r * cols + c] += 1.0;
+    }
+    
+    // 2. Smoothing (Diffusion)
+    // Two passes of 3x3 kernel for smoother results
+    let bufferA = grid;
+    let bufferB = new Float32Array(cols * rows);
+    
+    // Pass 1
+    for (let r = 1; r < rows - 1; r++) {
+        for (let c = 1; c < cols - 1; c++) {
+            const i = r * cols + c;
+            bufferB[i] = (bufferA[i] * 4 + 
+                         bufferA[i-1] + bufferA[i+1] + 
+                         bufferA[i-cols] + bufferA[i+cols] +
+                         bufferA[i-cols-1] + bufferA[i-cols+1] +
+                         bufferA[i+cols-1] + bufferA[i+cols+1]) / 12;
+        }
+    }
+    
+    // Pass 2 (Swap buffers)
+    bufferA = bufferB;
+    bufferB = new Float32Array(cols * rows); // Clear or reuse grid if we didn't need original
+    let maxDensity = 0;
+    
+    for (let r = 1; r < rows - 1; r++) {
+        for (let c = 1; c < cols - 1; c++) {
+            const i = r * cols + c;
+            const val = (bufferA[i] * 4 + 
+                         bufferA[i-1] + bufferA[i+1] + 
+                         bufferA[i-cols] + bufferA[i+cols] +
+                         bufferA[i-cols-1] + bufferA[i-cols+1] +
+                         bufferA[i+cols-1] + bufferA[i+cols+1]) / 12;
+            
+            bufferB[i] = val;
+            if (val > maxDensity) maxDensity = val;
+        }
+    }
+    
+    const smoothed = bufferB;
+    
+    if (maxDensity === 0) return;
+    
+    // 3. Rendering to Offscreen Canvas
+    const imgData = heatmapCtx.createImageData(w, h);
+    const data = imgData.data;
+    
+    for (let i = 0; i < cols * rows; i++) {
+        const val = smoothed[i];
+        if (val < 0.01) continue; // Transparent
+        
+        const norm = Math.min(1, val / (maxDensity * 0.8)); // Boost contrast slightly
+        
+        // Color Map (Turbo-like)
+        let r, g, b, a;
+        
+        // Alpha ramps up quickly to make low density visible
+        a = Math.min(255, Math.floor(norm * 255 * 2.0)); 
+        
+        if (norm < 0.2) {
+            // Blue range
+            const t = norm / 0.2;
+            r = 0; g = Math.floor(t * 50); b = Math.floor(150 + t * 105);
+        } else if (norm < 0.4) {
+            // Cyan range
+            const t = (norm - 0.2) / 0.2;
+            r = 0; g = Math.floor(50 + t * 205); b = 255;
+        } else if (norm < 0.6) {
+            // Green range
+            const t = (norm - 0.4) / 0.2;
+            r = Math.floor(t * 255); g = 255; b = Math.floor(255 - t * 255);
+        } else if (norm < 0.8) {
+            // Yellow range
+            const t = (norm - 0.6) / 0.2;
+            r = 255; g = Math.floor(255 - t * 100); b = 0;
+        } else {
+            // Red range
+            const t = (norm - 0.8) / 0.2;
+            r = 255; g = Math.floor(155 - t * 155); b = 0;
+        }
+        
+        const idx = i * 4;
+        data[idx] = r;
+        data[idx+1] = g;
+        data[idx+2] = b;
+        data[idx+3] = a;
+    }
+    
+    heatmapCtx.putImageData(imgData, 0, 0);
+    
+    // 4. Draw to Main Canvas (Upscale with smoothing)
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen'; // Blend with background
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(heatmapCanvas, 0, 0, w, h, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+}
+
+function drawBAO(x, y, scale, growth, horizonScale = 1.0, rsdScaleY = 1.0) {
     // Safety check for coordinates
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
@@ -750,7 +1511,12 @@ function drawBAO(x, y, scale, growth, horizonScale = 1.0) {
     const maxRadius = r_vis + shellWidth * 2;
     
     try {
-        const g = ctx.createRadialGradient(x, y, 0, x, y, maxRadius);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1, rsdScaleY);
+        
+        // Draw at (0,0) because we translated
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, maxRadius);
         
         // In Comoving frame, we reduce the "glow" effect to make it look more like a density map
         // and less like a glowing neon effect, as requested.
@@ -772,8 +1538,10 @@ function drawBAO(x, y, scale, growth, horizonScale = 1.0) {
         
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(x, y, maxRadius, 0, Math.PI * 2);
+        ctx.arc(0, 0, maxRadius, 0, Math.PI * 2);
         ctx.fill();
+        
+        ctx.restore();
         
     } catch (e) {
         console.error("Error drawing BAO:", e);
