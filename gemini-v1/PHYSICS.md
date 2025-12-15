@@ -46,6 +46,9 @@ We approximate the dependence of $r_s$ on matter density:
 $$ r_s \propto (\Omega_m h^2)^{-0.25} $$
 In the code, this is normalized to a reference $\Omega_m = 0.3$ (Power law index `0.25`).
 
+> [!NOTE]
+> In this case, this means only the BAO rings are considered as attractive points, and the painted galaxies only move towards these rings, not towards each other gravitationally. Also, the background galaxies do not participate in structure formation, but still expand with the universe.
+
 ## 3. Visual Approximations
 
 To create a compelling visual experience on a 2D screen, several non-physical transformations are applied.

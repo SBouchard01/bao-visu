@@ -32,8 +32,10 @@ The `state` object holds the mutable simulation data:
 ## 3. Initialization & Main Loop (`script.js`)
 
 ### 3.1 `init()`
-1.  Checks for Dev Mode (URL param or Shift+D).
-2.  Calls `resize()` to set canvas dimensions.
+> [!TIP]
+> Dev Mode can be toggled by pressing **Shift+D** or adding `?dev=true` to the URL.
+
+1.  Calls `resize()` to set canvas dimensions.
 3.  Calls `shuffleCenters()` to generate initial data.
 4.  Starts the `loop()`.
 
