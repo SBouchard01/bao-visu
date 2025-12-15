@@ -20,6 +20,7 @@
                 </button>
             </div>
             <canvas id="correlation-canvas" width="240" height="100"></canvas>
+            <div id="plot-resize-handle" title="Resize Plot"></div>
         </div>
 
         <!-- Settings Panel (Collapsible) -->
@@ -29,7 +30,7 @@
                     <span class="icon-mask icon-bao" style="background-color: #4cc9f0; width: 24px; height: 24px;"></span>
                     <h3>BAO Visualization</h3>
                 </div>
-                <button id="close-settings-btn" class="icon-btn" title="Close Settings">
+                <button id="close-settings-btn" class="icon-btn" title="Close Settings (Esc)">
                     <span class="icon-mask icon-close" style="width: 20px; height: 20px;"></span>
                 </button>
             </div>
@@ -97,7 +98,7 @@
                     <div class="box-header">
                         Redshift Evolution
                         <div class="info-icon">
-                            <div class="tooltip">Controls the cosmic time. z=0 is today. At z>5, the view transitions to a composite view representing the early universe.</div>
+                            <div class="tooltip">Controls the cosmic time. z=0 is today. At z>5, the view transitions to a composite view representing the early universe. (Use mouse wheel to adjust)</div>
                         </div>
                         <span id="z-val" class="value-display">5.00</span>
                     </div>
@@ -323,25 +324,25 @@
 
             <div class="divider-h"></div>
             
-            <button id="sidebar-play-btn" class="icon-btn" title="Play/Pause">
+            <button id="sidebar-play-btn" class="icon-btn" title="Play/Pause (Space)">
                 <span class="icon-mask icon-play" style="width: 24px; height: 24px;"></span>
             </button>
 
-            <button id="sidebar-reset-btn" class="icon-btn" title="Reset">
+            <button id="sidebar-reset-btn" class="icon-btn" title="Reset (Esc)">
                 <span class="icon-mask icon-reset" style="width: 24px; height: 24px;"></span>
             </button>
 
             <div class="spacer-v"></div>
 
-            <button id="sidebar-density-btn" class="icon-btn active" title="Toggle Density Field">
+            <button id="sidebar-density-btn" class="icon-btn active" title="Toggle Density Field (D)">
                 <span class="icon-mask icon-density" style="width: 24px; height: 24px;"></span>
             </button>
 
-            <button id="sidebar-galaxies-btn" class="icon-btn active" title="Toggle Galaxies">
+            <button id="sidebar-galaxies-btn" class="icon-btn active" title="Toggle Galaxies (G)">
                 <span class="icon-mask icon-galaxies" style="width: 24px; height: 24px;"></span>
             </button>
 
-            <button id="sidebar-heatmap-btn" class="icon-btn" title="Toggle Galaxy Heatmap">
+            <button id="sidebar-heatmap-btn" class="icon-btn" title="Toggle Galaxy Heatmap (H)">
                 <span class="icon-mask icon-heatmap" style="width: 24px; height: 24px;"></span>
             </button>
 
@@ -349,7 +350,7 @@
                 <span class="icon-mask icon-horizon" style="width: 24px; height: 24px;"></span>
             </button>
 
-            <button id="sidebar-rsd-btn" class="icon-btn" title="Toggle RSD (Redshift Space Distortions)">
+            <button id="sidebar-rsd-btn" class="icon-btn" title="Toggle RSD (R)">
                 <span class="icon-mask icon-rsd" style="width: 24px; height: 24px;"></span>
             </button>
 
@@ -359,11 +360,11 @@
                 <span class="icon-mask icon-tour" style="width: 24px; height: 24px;"></span>
             </button>
 
-            <button id="sidebar-plot-btn" class="icon-btn active" title="Toggle Plot">
+            <button id="sidebar-plot-btn" class="icon-btn active" title="Toggle Plot (P)">
                 <span class="icon-mask icon-plot" style="width: 24px; height: 24px;"></span>
             </button>
 
-            <button id="sidebar-screenshot-btn" class="icon-btn" title="Take Screenshot (Save as PNG)">
+            <button id="sidebar-screenshot-btn" class="icon-btn" title="Take Screenshot (Ctrl+S)">
                 <span class="icon-mask icon-screenshot" style="width: 24px; height: 24px;"></span>
             </button>
         </div>

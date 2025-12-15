@@ -302,89 +302,9 @@ function updateSliderFill(slider) {
     }
 }
 
-function togglePlot(show) {
-    state.showPlot = show;
-    
-    if (show) {
-        // Opening with animation (Reverse of closing)
-        if (sidebarPlotBtn && correlationContainer) {
-            // 1. Ensure it's visible but in the "closed" state (at button position)
-            correlationContainer.classList.remove('hidden');
-            
-            // We need to calculate where it SHOULD be naturally to know the delta
-            // But since it's fixed position top:20, left:20, we know its target.
-            // However, to be safe, we can let the browser layout it, then apply the transform.
-            
-            const plotRect = correlationContainer.getBoundingClientRect();
-            const btnRect = sidebarPlotBtn.getBoundingClientRect();
-            
-            const plotCenterX = plotRect.left + plotRect.width / 2;
-            const plotCenterY = plotRect.top + plotRect.height / 2;
-            const btnCenterX = btnRect.left + btnRect.width / 2;
-            const btnCenterY = btnRect.top + btnRect.height / 2;
-            
-            const dx = btnCenterX - plotCenterX;
-            const dy = btnCenterY - plotCenterY;
-            
-            // Set start state (at button)
-            correlationContainer.style.transition = 'none'; // Disable transition for instant setup
-            correlationContainer.style.transform = `translate(${dx}px, ${dy}px) scale(0.1)`;
-            correlationContainer.style.opacity = '0';
-            
-            // Force reflow
-            correlationContainer.offsetHeight;
-            
-            // Animate to end state (natural position)
-            correlationContainer.classList.add('collapsing'); // Re-use transition class
-            correlationContainer.style.transition = ''; // Re-enable CSS transition
-            correlationContainer.style.transform = '';
-            correlationContainer.style.opacity = '1';
-            
-            // Cleanup class after animation
-            setTimeout(() => {
-                correlationContainer.classList.remove('collapsing');
-            }, 500);
-        } else {
-            correlationContainer.classList.remove('hidden');
-        }
-        
-        if (layerPlotToggle) layerPlotToggle.checked = true;
-        if (sidebarPlotBtn) sidebarPlotBtn.classList.add('inactive');
-    } else {
-        // Closing with animation
-        if (sidebarPlotBtn && correlationContainer && !correlationContainer.classList.contains('hidden')) {
-            const plotRect = correlationContainer.getBoundingClientRect();
-            const btnRect = sidebarPlotBtn.getBoundingClientRect();
-            
-            // Calculate center points
-            const plotCenterX = plotRect.left + plotRect.width / 2;
-            const plotCenterY = plotRect.top + plotRect.height / 2;
-            const btnCenterX = btnRect.left + btnRect.width / 2;
-            const btnCenterY = btnRect.top + btnRect.height / 2;
-            
-            const dx = btnCenterX - plotCenterX;
-            const dy = btnCenterY - plotCenterY;
-            
-            correlationContainer.classList.add('collapsing');
-            correlationContainer.style.transform = `translate(${dx}px, ${dy}px) scale(0.1)`;
-            correlationContainer.style.opacity = '0';
-            
-            // After animation, hide it properly
-            setTimeout(() => {
-                if (!state.showPlot) { // Check if still closed
-                    correlationContainer.classList.add('hidden');
-                    correlationContainer.classList.remove('collapsing');
-                    correlationContainer.style.transform = '';
-                    correlationContainer.style.opacity = '';
-                }
-            }, 500); // Match CSS transition time
-        } else {
-            correlationContainer.classList.add('hidden');
-        }
-        
-        if (layerPlotToggle) layerPlotToggle.checked = false;
-        if (sidebarPlotBtn) sidebarPlotBtn.classList.remove('inactive');
-    }
+function togglePlot() {
+    state.showPlot = !state.showPlot;
+    updateLayerUI();
     draw();
 }
 
@@ -454,8 +374,88 @@ function setupEventListeners() {
             draw();
         }
     });
+
+    // General Key Bindings
+    document.addEventListener('keydown', (e) => {
+        // Ignore if typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        const key = e.key.toLowerCase();
+
+        if (e.code === 'Space') {
+            e.preventDefault(); // Prevent scrolling
+            togglePlay();
+        } else if (key === 'r') {
+            state.showRSD = !state.showRSD;
+            updateViewUI();
+            draw();
+        } else if (key === 'd' && !e.ctrlKey && !e.shiftKey) {
+             state.showDensity = !state.showDensity;
+             updateLayerUI();
+             draw();
+        } else if (key === 'g') {
+            state.showGalaxies = !state.showGalaxies;
+            updateLayerUI();
+            draw();
+        } else if (key === 'h') {
+            toggleHeatmap();
+        } else if (key === 'p') {
+            togglePlot();
+        } else if (e.shiftKey && key === 'escape') {
+            e.preventDefault();
+            resetAllSettings();
+        } else if (e.ctrlKey && key === 's') {
+            e.preventDefault();
+            takeScreenshot();
+        } else if (key === 'escape') {
+            if (settingsPanel && !settingsPanel.classList.contains('collapsed')) {
+                toggleSettings(false);
+            } else {
+                // Reset Redshift Evolution
+                state.playing = false;
+                updatePlayButtons();
+                state.z = 5.0;
+                updatePhysicsStateFromZ(state.z);
+                updateUI();
+                draw();
+            }
+        }
+    });
     
     window.addEventListener('resize', resize);
+    
+    // Mouse Wheel for Redshift Zoom
+    window.addEventListener('wheel', (e) => {
+        // Only zoom if not hovering over a scrollable panel (like settings)
+        if (settingsPanel && settingsPanel.contains(e.target) && !settingsPanel.classList.contains('collapsed')) {
+            return;
+        }
+        
+        // Logarithmic Zoom Logic
+        // z = 10^val - 1
+        // val = log10(z + 1)
+        let currentLog = Math.log10(state.z + 1);
+        const step = 0.05;
+        
+        if (e.deltaY > 0) {
+            // Scroll Down -> Increase z (towards 1100)
+            currentLog += step;
+        } else {
+            // Scroll Up -> Decrease z (towards 0)
+            currentLog -= step;
+        }
+        
+        // Clamp (Max z=1100 => log=3.04)
+        if (currentLog < 0) currentLog = 0;
+        if (currentLog > 3.0414) currentLog = 3.0414;
+        
+        state.z = Math.pow(10, currentLog) - 1;
+        
+        // Update
+        updatePhysicsStateFromZ(state.z);
+        updateUI();
+        draw();
+    }, { passive: true });
     
     if (playBtn) playBtn.addEventListener('click', togglePlay);
     if (sidebarPlayBtn) sidebarPlayBtn.addEventListener('click', togglePlay);
@@ -542,13 +542,13 @@ function setupEventListeners() {
     }
 
     if (layerPlotToggle) layerPlotToggle.addEventListener('change', (e) => {
-        togglePlot(e.target.checked);
+        togglePlot();
     });
     if (closePlotBtn) closePlotBtn.addEventListener('click', () => {
-        togglePlot(false);
+        togglePlot();
     });
     if (sidebarPlotBtn) sidebarPlotBtn.addEventListener('click', () => {
-        togglePlot(true);
+        togglePlot();
     });
 
     if (sidebarScreenshotBtn) {
@@ -634,6 +634,51 @@ function setupEventListeners() {
         });
     }
 
+    // Plot Resize Logic
+    const plotResizeHandle = document.getElementById('plot-resize-handle');
+    let isResizingPlot = false;
+    let lastDownX = 0;
+    let initialWidth = 0;
+
+    if (plotResizeHandle && correlationContainer) {
+        plotResizeHandle.addEventListener('mousedown', (e) => {
+            isResizingPlot = true;
+            lastDownX = e.clientX;
+            initialWidth = correlationContainer.getBoundingClientRect().width;
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isResizingPlot) return;
+            
+            const dx = e.clientX - lastDownX;
+            let newWidth = initialWidth + dx;
+            
+            // Min width constraint
+            if (newWidth < 300) newWidth = 300;
+            if (newWidth > 1000) newWidth = 1000; // Max width
+            
+            correlationContainer.style.width = newWidth + 'px';
+            
+            // Update Canvas Size (Maintain Aspect Ratio 2.4:1)
+            // Container padding is 20px total (10px each side)
+            const canvasWidth = newWidth - 20;
+            const canvasHeight = canvasWidth / 2.4;
+            
+            if (correlationCanvas) {
+                correlationCanvas.width = canvasWidth;
+                correlationCanvas.height = canvasHeight;
+            }
+            
+            draw();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isResizingPlot = false;
+        });
+    }
+
     if (omegalSlider) {
         omegalSlider.addEventListener('input', (e) => {
             state.omega_lambda = parseFloat(e.target.value);
@@ -710,6 +755,13 @@ function resetAllSettings() {
     
     // Reset Config
     CONFIG.GRAVITY_STRENGTH = 0.2;
+    
+    // Reset Plot Size
+    if (correlationContainer && correlationCanvas) {
+        correlationContainer.style.width = '260px'; // 240px canvas + 20px padding
+        correlationCanvas.width = 240;
+        correlationCanvas.height = 100;
+    }
     
     // Update Physics
     updatePhysicsStateFromZ(state.z);

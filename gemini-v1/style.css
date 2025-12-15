@@ -50,6 +50,24 @@ body, html {
     transition: opacity 0.3s, transform 0.3s;
 }
 
+#plot-resize-handle {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 15px;
+    height: 15px;
+    cursor: se-resize;
+    /* Curved gray bean style */
+    border-bottom: 4px solid rgba(255, 255, 255, 0.3);
+    border-right: 4px solid rgba(255, 255, 255, 0.3);
+    border-bottom-right-radius: 8px;
+    transition: border-color 0.2s;
+}
+
+#plot-resize-handle:hover {
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
 .floating-plot.hidden {
     opacity: 0;
     transform: translateY(-20px);
@@ -860,7 +878,6 @@ canvas {
 
 #sidebar-plot-btn.inactive {
     opacity: 0.3;
-    pointer-events: none;
     transform: scale(0.8);
 }
 

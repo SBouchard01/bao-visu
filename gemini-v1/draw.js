@@ -271,6 +271,9 @@ function updateCorrelationPlot(growth, horizonScale) {
     const w = correlationCanvas.width;
     const h = correlationCanvas.height;
     
+    // Scale Factor (Base width 240)
+    const scale = w / 240;
+
     // Clear
     correlationCtx.clearRect(0, 0, w, h);
     
@@ -330,40 +333,40 @@ function updateCorrelationPlot(growth, horizonScale) {
     if (maxDensity === 0) maxDensity = 1;
     
     // Margins for axes
-    const marginLeft = 20;
-    const marginBottom = 20;
-    const axisPadding = 2; // Padding between curve and axis
-    const plotW = w - marginLeft;
-    const plotH = h - marginBottom - axisPadding;
+    const marginLeft = 30 * scale;
+    const marginBottom = 30 * scale;
+    const axisPadding = 2 * scale; // Padding between curve and axis
+    const plotW = w - marginLeft - (15 * scale);
+    const plotH = h - marginBottom - axisPadding - (10 * scale);
 
     // Draw Axes
     correlationCtx.beginPath();
     correlationCtx.strokeStyle = '#666';
-    correlationCtx.lineWidth = 1.5;
+    correlationCtx.lineWidth = 1.5 * scale;
     
     // Y-Axis
     correlationCtx.moveTo(marginLeft, h - marginBottom); // Start at bottom
     correlationCtx.lineTo(marginLeft, 0); // Draw to top
     // Y-Axis Arrow
     correlationCtx.moveTo(marginLeft, 0);
-    correlationCtx.lineTo(marginLeft - 3, 5);
+    correlationCtx.lineTo(marginLeft - (3 * scale), 5 * scale);
     correlationCtx.moveTo(marginLeft, 0);
-    correlationCtx.lineTo(marginLeft + 3, 5);
+    correlationCtx.lineTo(marginLeft + (3 * scale), 5 * scale);
 
     // X-Axis
     correlationCtx.moveTo(marginLeft, h - marginBottom);
     correlationCtx.lineTo(w, h - marginBottom);
     // X-Axis Arrow
     correlationCtx.moveTo(w, h - marginBottom);
-    correlationCtx.lineTo(w - 5, h - marginBottom - 3);
+    correlationCtx.lineTo(w - (5 * scale), h - marginBottom - (3 * scale));
     correlationCtx.moveTo(w, h - marginBottom);
-    correlationCtx.lineTo(w - 5, h - marginBottom + 3);
+    correlationCtx.lineTo(w - (5 * scale), h - marginBottom + (3 * scale));
     
     correlationCtx.stroke();
 
     // Draw X-Axis Graduations
     correlationCtx.fillStyle = '#888';
-    correlationCtx.font = '9px monospace';
+    correlationCtx.font = `${9 * scale}px monospace`;
     correlationCtx.textAlign = 'center';
     correlationCtx.textBaseline = 'top';
 
@@ -374,19 +377,19 @@ function updateCorrelationPlot(growth, horizonScale) {
         // Tick mark
         correlationCtx.beginPath();
         correlationCtx.moveTo(x, h - marginBottom);
-        correlationCtx.lineTo(x, h - marginBottom + 4);
+        correlationCtx.lineTo(x, h - marginBottom + (4 * scale));
         correlationCtx.stroke();
         
         // Label
         // Highlight 150
         if (r === 150) {
             correlationCtx.fillStyle = '#4cc9f0';
-            correlationCtx.font = 'bold 10px monospace';
+            correlationCtx.font = `bold ${10 * scale}px monospace`;
         } else {
             correlationCtx.fillStyle = '#888';
-            correlationCtx.font = '9px monospace';
+            correlationCtx.font = `${9 * scale}px monospace`;
         }
-        correlationCtx.fillText(r, x, h - marginBottom + 6);
+        correlationCtx.fillText(r, x, h - marginBottom + (6 * scale));
     }
     // Reset style
     correlationCtx.strokeStyle = '#4cc9f0';
@@ -394,7 +397,7 @@ function updateCorrelationPlot(growth, horizonScale) {
     // Draw Plot Curve
     correlationCtx.beginPath();
     correlationCtx.strokeStyle = '#4cc9f0';
-    correlationCtx.lineWidth = 1;
+    correlationCtx.lineWidth = 1 * scale;
     
     for (let i = 0; i < binCount; i++) {
         const x = marginLeft + (i / binCount) * plotW;
@@ -416,7 +419,7 @@ function updateCorrelationPlot(growth, horizonScale) {
     if (x_s < w) {
         correlationCtx.beginPath();
         correlationCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        correlationCtx.setLineDash([4, 4]);
+        correlationCtx.setLineDash([4 * scale, 4 * scale]);
         correlationCtx.moveTo(x_s, 0);
         correlationCtx.lineTo(x_s, h - marginBottom - axisPadding);
         correlationCtx.stroke();
@@ -424,15 +427,21 @@ function updateCorrelationPlot(growth, horizonScale) {
         
         // Labels
         correlationCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        correlationCtx.font = '10px sans-serif';
-        correlationCtx.fillText('r_s', x_s + 4, 12);
+        correlationCtx.font = `${10 * scale}px sans-serif`;
+        correlationCtx.fillText('r_s', x_s + (10 * scale), 2 * scale);
     }
     
     // Axis Names
     correlationCtx.fillStyle = '#aaa';
-    correlationCtx.font = 'italic 12px serif';
-    correlationCtx.fillText('ξ(r)', 0, 12); // Y-axis label
-    correlationCtx.fillText('r', w - 10, h - 5); // X-axis label
+    correlationCtx.font = `italic ${12 * scale}px serif`;
+    
+    correlationCtx.textAlign = 'right';
+    correlationCtx.textBaseline = 'middle';
+    correlationCtx.fillText('ξ(r)', marginLeft - (5 * scale), 8 * scale); // Y-axis label
+
+    correlationCtx.textAlign = 'right';
+    correlationCtx.textBaseline = 'bottom';
+    correlationCtx.fillText('r', w - (5 * scale), h - (8 * scale)); // X-axis label
 }
 
 
