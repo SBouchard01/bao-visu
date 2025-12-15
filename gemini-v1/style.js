@@ -67,6 +67,8 @@ var devFps = document.getElementById('dev-fps');
 var devObjCount = document.getElementById('dev-obj-count');
 var devComovingSlider = document.getElementById('dev-comoving-slider');
 var devComovingVal = document.getElementById('dev-comoving-val');
+var devHeatmapSlider = document.getElementById('dev-heatmap-slider');
+var devHeatmapVal = document.getElementById('dev-heatmap-val');
 
 // --- UI Functions ---
 
@@ -428,6 +430,15 @@ function setupEventListeners() {
         devComovingSlider.addEventListener('input', (e) => {
             state.devComovingScale = parseFloat(e.target.value);
             if (devComovingVal) devComovingVal.textContent = state.devComovingScale.toFixed(1);
+            draw();
+        });
+    }
+
+    if (devHeatmapSlider) {
+        devHeatmapSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            CONFIG.HEATMAP_PIXEL_SIZE_MAX = val;
+            if (devHeatmapVal) devHeatmapVal.textContent = val.toFixed(1);
             draw();
         });
     }

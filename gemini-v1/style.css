@@ -524,6 +524,7 @@ button.secondary-btn:hover {
 .layer-checkbox-item {
     display: flex;
     align-items: center;
+    user-select: none;
     justify-content: space-between;
     cursor: pointer;
     padding: 6px 10px;
