@@ -65,7 +65,7 @@ Assuming the Line of Sight (LoS) is the Y-axis:
 $$ y_{apparent} = y_{real} + \frac{v_{pec}}{H(a)} $$
 
 We model the infall velocity $v_{pec}$ as proportional to the distance from the cluster center ($dy$) and the growth factor:
-$$ \Delta y \propto -dy \cdot D(a) \cdot \text{GravityStrength} \cdot \text{RSD\_FACTOR} $$
+$$ \Delta y \propto -dy \cdot D(a) \cdot \text{GravityStrength} \cdot \text{RSDFactor} $$
 
 - **RSD Factor:** `0.8` (`CONFIG.RSD_FACTOR`).
 - **Safety Clamp:** The scaling factor is clamped to a minimum of `0.2` (`CONFIG.RSD_MIN_SCALE`) to prevent the visualization from inverting or flattening completely.
