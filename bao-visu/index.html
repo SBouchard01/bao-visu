@@ -75,6 +75,24 @@
                             </span>
                         </label>
                     </div>
+
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #aaa; margin-bottom: 5px;">
+                            <div style="display: flex; align-items: center;">
+                                <span>Comoving Scale</span>
+                                <div class="info-icon" style="width: 12px; height: 12px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                    </svg>
+                                    <div class="tooltip">Adjust the visual zoom level in Comoving Space mode without affecting physics.</div>
+                                </div>
+                            </div>
+                            <span id="dev-comoving-val" style="color: #fff;">1.0</span>
+                        </div>
+                        <input type="range" id="dev-comoving-slider" min="1.0" max="4.0" step="0.1" value="1.0" style="width: 100%;">
+                    </div>
                 </div>
 
                 <!-- Redshift Box (Prominent) -->
@@ -87,7 +105,7 @@
                                 <line x1="12" y1="16" x2="12" y2="12"></line>
                                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
                             </svg>
-                            <div class="tooltip">Controls the cosmic time. z=0 is today, higher z is the past.</div>
+                            <div class="tooltip">Controls the cosmic time. z=0 is today. At z>5, the view transitions to a composite view representing the early universe.</div>
                         </div>
                         <span id="z-val" class="value-display">5.00</span>
                     </div>
@@ -118,7 +136,7 @@
                                 <line x1="12" y1="16" x2="12" y2="12"></line>
                                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
                             </svg>
-                            <div class="tooltip">Toggle visibility of the density field (background) and individual galaxies.</div>
+                            <div class="tooltip">Toggle visibility of the density field, galaxies, heatmap, and sound horizon.</div>
                         </div>
                     </div>
                     <div class="layer-checkbox-container">
@@ -206,7 +224,7 @@
                                     <line x1="12" y1="16" x2="12" y2="12"></line>
                                     <line x1="12" y1="8" x2="12.01" y2="8"></line>
                                 </svg>
-                                <div class="tooltip">Physical: Universe expands. Comoving: Coordinates expand with the universe (static view).</div>
+                                <div class="tooltip">Physical: Universe expands. Comoving: Static view, with no early-universe features.</div>
                             </div>
                         </label>
                         <div class="toggle-group">
@@ -239,19 +257,19 @@
                     <div class="full-width-slider-container">
                         <div class="slider-label-row">
                             <label>
-                                Galaxy Number
+                                Galaxy Density [(Mpc/h)⁻²]
                                 <div class="info-icon">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="12" cy="12" r="10"></circle>
                                         <line x1="12" y1="16" x2="12" y2="12"></line>
                                         <line x1="12" y1="8" x2="12.01" y2="8"></line>
                                     </svg>
-                                    <div class="tooltip">Adjusts the density of galaxies in the simulation.</div>
+                                    <div class="tooltip">Average galaxy density in galaxies per (Mpc/h)². Box size is 2000 Mpc/h.</div>
                                 </div>
                             </label>
-                            <span id="galaxy-number-val" class="value-display">2000</span>
+                            <span id="galaxy-number-val" class="value-display">2.0e-3</span>
                         </div>
-                        <input type="range" id="galaxy-density-slider" min="0" max="3" step="0.1" value="1.0">
+                        <input type="range" id="galaxy-density-slider" min="0.1" max="5.0" step="0.1" value="2.0">
                     </div>
 
                     <div class="full-width-slider-container">
@@ -428,6 +446,13 @@
                     <path d="M3 15h18M3 9h18M9 21V3M15 21V3"></path>
                 </svg>
             </button>
+
+            <button id="sidebar-screenshot-btn" class="icon-btn" title="Take Screenshot (Save as PNG)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+            </button>
         </div>
     </div>
 
@@ -458,6 +483,10 @@
     <!-- Global Tooltip -->
     <div id="global-tooltip" class="global-tooltip"></div>
 
+    <script src="utils.js"></script>
+    <script src="physics.js"></script>
+    <script src="style.js"></script>
+    <script src="draw.js"></script>
     <script src="script.js"></script>
     <script src="tour.js"></script>
 </body>

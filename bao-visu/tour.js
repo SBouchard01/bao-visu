@@ -4,15 +4,15 @@
 const TOUR_STEPS = [
     {
         title: "1. The Early Universe",
-        text: "In the beginning (high redshift z=1100), the universe was a hot, dense plasma. We are looking at the Cosmic Microwave Background (CMB) era. Matter was distributed almost uniformly, with tiny fluctuations.",
+        text: "At high redshift (z=1100), we see the early density field. The view is restricted by an elliptic mask representing the observable universe at that time. Matter is distributed almost uniformly with tiny fluctuations.",
         setup: () => {
             resetAllSettings();
             state.z = 1100.0;
-            state.baoCount = 50; // Show many peaks
-            state.showHeatmap = true; // Heatmap looks more like CMB/early density
+            state.baoCount = 50; 
+            state.showHeatmap = true; 
             state.showGalaxies = false;
             state.showDensity = true;
-            state.isComoving = false; // Show clumped heatmap
+            state.isComoving = false; // Physical frame required for mask
             state.showRSD = false;
             state.showHorizon = false;
             state.showPlot = false;
@@ -23,49 +23,49 @@ const TOUR_STEPS = [
     },
     {
         title: "2. Acoustic Waves (BAO)",
-        text: "Pressure waves traveled through the plasma, carrying baryons (normal matter) outward from overdensities. This created a 'sound horizon' - a preferred scale of separation.",
+        text: "Pressure waves traveled outward from overdensities, creating a preferred scale called the 'Sound Horizon'. In comoving coordinates (static view), this scale is fixed, appearing as a ring around density peaks.",
         setup: () => {
-            state.z = 3.0;
+            state.z = 100.0; // Post-recombination
             state.baoCount = 1; // Focus on one ring
             state.showHeatmap = false;
             state.showGalaxies = true;
             state.showDensity = true;
-            state.showHorizon = true; // Show the ring marker
-            state.isComoving = true;
+            state.showHorizon = true; 
+            state.isComoving = true; // Comoving to show fixed ring
             state.showRSD = false;
             state.showPlot = false;
             CONFIG.GRAVITY_STRENGTH = 0.2;
-            updatePhysicsStateFromZ(3.0);
-            shuffleCenters(); // Reset positions
+            updatePhysicsStateFromZ(100.0);
+            shuffleCenters(); 
         }
     },
     {
         title: "3. Structure Formation",
-        text: "As the universe expanded and cooled, gravity took over. Matter fell back into the central peaks and the shells at the sound horizon, forming galaxies.",
+        text: "As the universe expands (Physical Frame), gravity pulls matter into the peaks. The elliptic mask fades away as we approach lower redshifts, revealing the full cosmic web structure.",
         setup: () => {
-            state.z = 1.0;
+            state.z = 2.0;
             state.baoCount = 20;
-            state.showHeatmap = false;
+            state.showHeatmap = true;
             state.showGalaxies = true;
             state.showDensity = true;
             state.showHorizon = false;
-            state.isComoving = false; // Switch to physical to see expansion
+            state.isComoving = false; // Physical to see expansion & mask fade
             state.showRSD = false;
             state.showPlot = false;
-            CONFIG.GRAVITY_STRENGTH = 1.0; // Enhance clustering
-            updatePhysicsStateFromZ(1.0);
+            CONFIG.GRAVITY_STRENGTH = 1.0; 
+            updatePhysicsStateFromZ(2.0);
             shuffleCenters();
         }
     },
     {
-        title: "4. Cosmic Web & Dark Energy",
-        text: "Today (z=0), we see a cosmic web of galaxies. The expansion is accelerating due to Dark Energy (ΩΛ). The BAO scale is now a 'standard ruler' of ~150 Mpc.",
+        title: "4. The Cosmic Web",
+        text: "Today (z=0), galaxies trace the underlying dark matter web. The heatmap resolution adapts to show fine details. The BAO scale (~150 Mpc) remains imprinted in the galaxy distribution.",
         setup: () => {
             state.z = 0.0;
             state.baoCount = 100;
             state.showHeatmap = true;
-            state.showGalaxies = false;
-            state.showDensity = false; // Hide background density to focus on galaxy heatmap
+            state.showGalaxies = false; // Focus on heatmap
+            state.showDensity = false; 
             state.showHorizon = false;
             state.isComoving = false;
             state.showRSD = false;
@@ -78,18 +78,18 @@ const TOUR_STEPS = [
     },
     {
         title: "5. Redshift Space Distortions",
-        text: "When we observe galaxies, their peculiar velocities distort their apparent positions. Infalling galaxies make the spherical BAO shells look squashed along the line of sight. Notice how the galaxy shapes themselves also appear squashed or elongated due to these distortions.",
+        text: "Peculiar velocities distort the apparent positions of galaxies. Infalling galaxies make the spherical BAO shells look squashed along the line of sight (Y-axis). Use the 'Camera' button to capture this view!",
         setup: () => {
             state.z = 0.5;
             state.baoCount = 3;
             state.showHeatmap = false;
             state.showGalaxies = true;
             state.showDensity = true;
-            state.showRSD = true; // Turn on RSD
+            state.showRSD = true; 
             state.showHorizon = true;
-            state.isComoving = true; // Easier to see the shape distortion
+            state.isComoving = true; 
             state.showPlot = false;
-            CONFIG.GRAVITY_STRENGTH = 1.5; // Exaggerate effect
+            CONFIG.GRAVITY_STRENGTH = 1.5; 
             updatePhysicsStateFromZ(0.5);
             shuffleCenters();
         }

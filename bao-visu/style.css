@@ -516,9 +516,8 @@ button.secondary-btn:hover {
 /* --- Layer Checkboxes --- */
 .layer-checkbox-container {
     display: flex;
-    flex-direction: row; /* Side by side */
-    flex-wrap: wrap; /* Allow wrapping to prevent overflow */
-    gap: 10px;
+    flex-direction: column; /* Stack vertically */
+    gap: 8px;
     margin-top: 5px;
 }
 
@@ -527,10 +526,10 @@ button.secondary-btn:hover {
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-radius: 4px;
     transition: background 0.2s;
-    flex: 1; /* Share width */
+    width: 100%; /* Full width */
     background: rgba(255, 255, 255, 0.03); /* Slight background to distinguish */
 }
 
