@@ -13,7 +13,7 @@ var CONFIG = {
     ANIMATION_SPEED_FACTOR: 2.0, // Multiplier for visual speed tuning
     
     // Simulation
-    MAX_BAO_COUNT: 200,        
+    MAX_BAO_COUNT: 1000,  // Maximum number of BAO peaks (limit for performance/memory)
     UNIVERSE_SIZE: 8000, // Increased for high-z zoom out
     CENTER_SPAWN_RANGE: 2400, // Increased for high-z zoom out
     

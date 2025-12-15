@@ -37,6 +37,11 @@ function init() {
     
     resize();
     
+    // Update Config from UI
+    if (baoSlider) {
+        CONFIG.MAX_BAO_COUNT = parseInt(baoSlider.max) || CONFIG.MAX_BAO_COUNT;
+    }
+
     // Generate initial centers
     shuffleCenters();
     
