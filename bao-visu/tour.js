@@ -4,16 +4,20 @@
 const TOUR_STEPS = [
     {
         title: "1. The Early Universe",
-        text: "In the beginning (high redshift z=5), the universe was dense and hot. Matter was distributed almost uniformly, with tiny fluctuations. Here we see the initial seeds of structure.",
+        text: "In the beginning (high redshift z=1100), the universe was a hot, dense plasma. We are looking at the Cosmic Microwave Background (CMB) era. Matter was distributed almost uniformly, with tiny fluctuations.",
         setup: () => {
             resetAllSettings();
-            state.z = 5.0;
+            state.z = 1100.0;
             state.baoCount = 50; // Show many peaks
-            state.renderMode = 'heatmap'; // Heatmap looks more like CMB/early density
-            state.showGalaxies = true;
+            state.showHeatmap = true; // Heatmap looks more like CMB/early density
+            state.showGalaxies = false;
             state.showDensity = true;
-            state.isComoving = true; // Easier to see structure without expansion
-            updatePhysicsStateFromZ(5.0);
+            state.isComoving = false; // Show clumped heatmap
+            state.showRSD = false;
+            state.showHorizon = false;
+            state.showPlot = false;
+            CONFIG.GRAVITY_STRENGTH = 0.2;
+            updatePhysicsStateFromZ(1100.0);
             shuffleCenters();
         }
     },
@@ -23,9 +27,14 @@ const TOUR_STEPS = [
         setup: () => {
             state.z = 3.0;
             state.baoCount = 1; // Focus on one ring
-            state.renderMode = 'points';
+            state.showHeatmap = false;
+            state.showGalaxies = true;
+            state.showDensity = true;
             state.showHorizon = true; // Show the ring marker
             state.isComoving = true;
+            state.showRSD = false;
+            state.showPlot = false;
+            CONFIG.GRAVITY_STRENGTH = 0.2;
             updatePhysicsStateFromZ(3.0);
             shuffleCenters(); // Reset positions
         }
@@ -36,12 +45,15 @@ const TOUR_STEPS = [
         setup: () => {
             state.z = 1.0;
             state.baoCount = 20;
-            state.renderMode = 'points';
+            state.showHeatmap = false;
+            state.showGalaxies = true;
+            state.showDensity = true;
             state.showHorizon = false;
             state.isComoving = false; // Switch to physical to see expansion
+            state.showRSD = false;
+            state.showPlot = false;
             CONFIG.GRAVITY_STRENGTH = 1.0; // Enhance clustering
             updatePhysicsStateFromZ(1.0);
-            // Don't shuffle, let them evolve? No, shuffle for clean state
             shuffleCenters();
         }
     },
@@ -51,23 +63,32 @@ const TOUR_STEPS = [
         setup: () => {
             state.z = 0.0;
             state.baoCount = 100;
-            state.renderMode = 'heatmap';
+            state.showHeatmap = true;
+            state.showGalaxies = false;
+            state.showDensity = false; // Hide background density to focus on galaxy heatmap
             state.showHorizon = false;
             state.isComoving = false;
+            state.showRSD = false;
+            state.showPlot = true;
             state.omega_lambda = 0.7;
+            CONFIG.GRAVITY_STRENGTH = 1.0;
             updatePhysicsStateFromZ(0.0);
             shuffleCenters();
         }
     },
     {
         title: "5. Redshift Space Distortions",
-        text: "When we observe galaxies, their peculiar velocities distort their apparent positions. Infalling galaxies make the spherical BAO shells look squashed along the line of sight.",
+        text: "When we observe galaxies, their peculiar velocities distort their apparent positions. Infalling galaxies make the spherical BAO shells look squashed along the line of sight. Notice how the galaxy shapes themselves also appear squashed or elongated due to these distortions.",
         setup: () => {
             state.z = 0.5;
             state.baoCount = 3;
-            state.renderMode = 'points';
+            state.showHeatmap = false;
+            state.showGalaxies = true;
+            state.showDensity = true;
             state.showRSD = true; // Turn on RSD
+            state.showHorizon = true;
             state.isComoving = true; // Easier to see the shape distortion
+            state.showPlot = false;
             CONFIG.GRAVITY_STRENGTH = 1.5; // Exaggerate effect
             updatePhysicsStateFromZ(0.5);
             shuffleCenters();
@@ -84,15 +105,18 @@ const tourPrevBtn = document.getElementById('tour-prev-btn');
 const tourNextBtn = document.getElementById('tour-next-btn');
 const tourCloseBtn = document.getElementById('tour-close-btn');
 const startTourBtn = document.getElementById('start-tour-btn');
+const sidebarTourBtn = document.getElementById('sidebar-tour-btn');
 
 function startTour() {
     currentTourStep = 0;
     tourOverlay.classList.remove('hidden');
+    if (sidebarTourBtn) sidebarTourBtn.classList.add('active');
     applyTourStep(0);
 }
 
 function endTour() {
     tourOverlay.classList.add('hidden');
+    if (sidebarTourBtn) sidebarTourBtn.classList.remove('active');
 }
 
 function applyTourStep(index) {
@@ -124,6 +148,20 @@ if (startTourBtn) {
     startTourBtn.addEventListener('click', () => {
         // Close settings panel on mobile/small screens if needed, 
         // but for now just start the tour
+        startTour();
+    });
+}
+
+if (sidebarTourBtn) {
+    sidebarTourBtn.addEventListener('click', () => {
+        if (!tourOverlay.classList.contains('hidden')) {
+            // If tour is running, maybe restart or do nothing?
+            // User asked to disable it if running.
+            // But clicking it again could also just focus it.
+            // Let's assume "disable itself" means visual disable, but if clicked, maybe nothing happens or it restarts.
+            // Let's just do nothing if already active.
+            return;
+        }
         startTour();
     });
 }

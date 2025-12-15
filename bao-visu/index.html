@@ -42,6 +42,41 @@
             </div>
             
             <div class="panel-content">
+                <!-- Dev Tools Box (Hidden by default) -->
+                <div class="control-box dev-box" id="dev-tools-box" style="display: none;">
+                    <div class="box-header">Dev Tools</div>
+                    
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #aaa; margin-bottom: 5px; padding: 0 5px;">
+                        <span>FPS: <span id="dev-fps" style="color: #fff;">--</span></span>
+                        <span>Obj: <span id="dev-obj-count" style="color: #fff;">--</span></span>
+                    </div>
+
+                    <div class="layer-checkbox-container">
+                        <label class="layer-checkbox-item">
+                            <div class="layer-label-content">
+                                <span>Show Transition</span>
+                            </div>
+                            <input type="checkbox" id="dev-transition-toggle" checked>
+                            <span class="checkmark">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </label>
+                        <label class="layer-checkbox-item">
+                            <div class="layer-label-content">
+                                <span>Show Tile Border</span>
+                            </div>
+                            <input type="checkbox" id="dev-border-toggle">
+                            <span class="checkmark">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Redshift Box (Prominent) -->
                 <div class="control-box highlight-box">
                     <div class="box-header">
@@ -57,8 +92,9 @@
                         <span id="z-val" class="value-display">5.00</span>
                     </div>
                     <div class="full-width-slider-container" style="margin-bottom: 5px;">
-                        <!-- RTL Slider: Min(0)=Right, Max(5)=Left -->
-                        <input type="range" id="z-slider" min="0" max="5" step="0.01" value="5" class="slider-rtl">
+                        <!-- RTL Slider: Min(0)=Right, Max(3.04)=Left (Log scale for z=0 to 1100) -->
+                        <!-- Initial value log10(1101) = 3.0414 -->
+                        <input type="range" id="z-slider" min="0" max="3.0414" step="0.001" value="3.0414" class="slider-rtl">
                     </div>
                     <div class="button-row">
                         <button id="play-btn" class="icon-text-btn">
@@ -114,6 +150,22 @@
                                 <span>Galaxies</span>
                             </div>
                             <input type="checkbox" id="layer-galaxies-toggle" checked>
+                            <span class="checkmark">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </label>
+
+                        <label class="layer-checkbox-item">
+                            <div class="layer-label-content">
+                                <!-- Heatmap: Thermometer Icon -->
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path>
+                                </svg>
+                                <span>Galaxy Heatmap</span>
+                            </div>
+                            <input type="checkbox" id="layer-heatmap-toggle">
                             <span class="checkmark">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                     <polyline points="20 6 9 17 4 12"></polyline>
@@ -182,24 +234,7 @@
                         </div>
                     </div>
 
-                    <!-- Galaxy Render Mode -->
-                    <div class="toggle-group-container">
-                        <label class="toggle-group-label">
-                            Galaxy Rendering
-                            <div class="info-icon">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg>
-                                <div class="tooltip">Points: Individual galaxies. Heatmap: Smoothed density field.</div>
-                            </div>
-                        </label>
-                        <div class="toggle-group">
-                            <button id="render-points-btn" class="toggle-btn active">Points</button>
-                            <button id="render-heatmap-btn" class="toggle-btn">Heatmap</button>
-                        </div>
-                    </div>
+                    <!-- Galaxy Render Mode Removed -->
 
                     <div class="full-width-slider-container">
                         <div class="slider-label-row">
@@ -305,12 +340,12 @@
                     </div>
                 </div>
 
-                <button id="reset-all-btn" class="secondary-btn" style="width: 100%; margin-top: 10px; border-color: #444;">
-                    Reset All Settings
-                </button>
-
                 <button id="start-tour-btn" class="secondary-btn" style="width: 100%; margin-top: 5px; border-color: #4cc9f0; color: #4cc9f0;">
                     Start Guided Tour
+                </button>
+
+                <button id="reset-all-btn" class="secondary-btn" style="width: 100%; margin-top: 10px; border-color: #444;">
+                    Reset All Settings
                 </button>
 
                 <div class="disclaimer-text">
@@ -358,6 +393,12 @@
                 </svg>
             </button>
 
+            <button id="sidebar-heatmap-btn" class="icon-btn" title="Toggle Galaxy Heatmap">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path>
+                </svg>
+            </button>
+
             <button id="sidebar-horizon-btn" class="icon-btn" title="Toggle Sound Horizon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="9" stroke-dasharray="4 2"></circle>
@@ -373,6 +414,13 @@
             </button>
 
             <div style="margin-top: auto;"></div>
+
+            <button id="sidebar-tour-btn" class="icon-btn" title="Start Guided Tour">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon>
+                </svg>
+            </button>
 
             <button id="sidebar-plot-btn" class="icon-btn active" title="Toggle Plot">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

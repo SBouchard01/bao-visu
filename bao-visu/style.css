@@ -241,6 +241,16 @@ body, html {
     background-image: linear-gradient(#e0aaff, #e0aaff);
 }
 
+/* Dev Box */
+.control-box.dev-box {
+    background: rgba(255, 200, 0, 0.05);
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}
+
+.control-box.dev-box .box-header {
+    color: #ffcc00;
+}
+
 .sidebar-logo {
     display: flex;
     justify-content: center;
@@ -309,7 +319,7 @@ body, html {
 }
 
 .value-display {
-    width: 40px;
+    width: 50px; /* Increased width to prevent overflow for z=1100 */
     text-align: right;
     font-family: monospace;
     font-size: 0.8rem; /* Smaller font */
@@ -330,6 +340,47 @@ input[type=range] {
     background-image: linear-gradient(#4cc9f0, #4cc9f0);
     background-size: 0% 100%;
     background-repeat: no-repeat;
+}
+
+/* Special styling for Redshift Slider to gray out z > 5 */
+/* z=5 is at ~25.6% from the right (Min=0). So 74.4% from left. */
+/* Since it's RTL, Min(0) is Right. Max(3.04) is Left. */
+/* The track background (unfilled part) is visible to the LEFT of the thumb (higher z). */
+/* We want the track from z=5 (25% from right) to z=1100 (100% from right) to be gray/dark. */
+/* Linear Gradient: To Left. 
+   0% (Right) -> 25.6% (z=5): Normal Track Color (rgba(255,255,255,0.1))
+   25.6% -> 100% (Left): Darker/Grayed Out (rgba(255,255,255,0.03))
+*/
+#z-slider {
+    /* Track Gradient (Static) */
+    background-color: transparent; /* Ensure color doesn't override */
+    background-image: 
+        /* Layer 1: Dynamic Fill (Blue) - Controlled by JS background-size */
+        linear-gradient(#4cc9f0, #4cc9f0),
+        /* Layer 2: Standard Track (z=0 to z=5) - Solid Gray */
+        linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15)),
+        /* Layer 3: Optional Track (z=5 to z=1100) - Hatched Pattern */
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255,255,255,0.05),
+            rgba(255,255,255,0.05) 2px,
+            transparent 2px,
+            transparent 6px
+        );
+    
+    /* Initial Sizes: 
+       Layer 1 (Fill): 0% width (dynamic)
+       Layer 2 (Std Track): 25.6% width (fixed)
+       Layer 3 (Opt Track): 74.4% width (fixed)
+    */
+    background-size: 0% 100%, 25.6% 100%, 74.4% 100%;
+    background-repeat: no-repeat;
+    /* Positions:
+       Layer 1: Right (starts at z=0)
+       Layer 2: Right (starts at z=0)
+       Layer 3: Left (starts at z=1100)
+    */
+    background-position: right center, right center, left center;
 }
 
 input[type=range]::-webkit-slider-thumb {

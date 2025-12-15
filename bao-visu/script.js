@@ -37,6 +37,7 @@ const sidebarPlayBtn = document.getElementById('sidebar-play-btn');
 const sidebarResetBtn = document.getElementById('sidebar-reset-btn');
 const sidebarDensityBtn = document.getElementById('sidebar-density-btn');
 const sidebarGalaxiesBtn = document.getElementById('sidebar-galaxies-btn');
+// const sidebarHeatmapBtn = document.getElementById('sidebar-heatmap-btn'); // Already defined below
 const sidebarHorizonBtn = document.getElementById('sidebar-horizon-btn');
 const sidebarPlotBtn = document.getElementById('sidebar-plot-btn');
 const settingsPanel = document.getElementById('settings-panel');
@@ -59,9 +60,10 @@ const viewRealBtn = document.getElementById('view-real-btn');
 const viewRsdBtn = document.getElementById('view-rsd-btn');
 const sidebarRsdBtn = document.getElementById('sidebar-rsd-btn');
 
-// Galaxy Render Mode Controls
-const renderPointsBtn = document.getElementById('render-points-btn');
-const renderHeatmapBtn = document.getElementById('render-heatmap-btn');
+// Galaxy Render Mode Controls (Removed)
+// const renderPointsBtn = document.getElementById('render-points-btn');
+// const renderHeatmapBtn = document.getElementById('render-heatmap-btn');
+const sidebarHeatmapBtn = document.getElementById('sidebar-heatmap-btn');
 
 // Cosmology Controls
 const omegamSlider = document.getElementById('omegam-slider');
@@ -70,20 +72,31 @@ const omegalSlider = document.getElementById('omegal-slider');
 const omegalVal = document.getElementById('omegal-val');
 const flatToggle = document.getElementById('flat-toggle');
 
+// Dev Controls
+const devToolsBox = document.getElementById('dev-tools-box');
+const devTransitionToggle = document.getElementById('dev-transition-toggle');
+const devBorderToggle = document.getElementById('dev-border-toggle');
+// const devHeatmapToggle = document.getElementById('dev-heatmap-toggle'); // Removed
+const devFps = document.getElementById('dev-fps');
+const devObjCount = document.getElementById('dev-obj-count');
+const devPixelSizeSlider = document.getElementById('dev-pixel-size-slider');
+const devPixelSizeVal = document.getElementById('dev-pixel-size-val');
+
 // --- Configuration ---
 const CONFIG = {
     // Physics & Cosmology
-    COMOVING_RADIUS: 180,      
+    COMOVING_RADIUS: 150,      
     EXPANSION_DAMPING: 0.6,
     GRAVITY_STRENGTH: 0.2, // Strength of structure formation (0 to 1)
+    DEFAULT_COMOVING_Z: 5.0, // Reference redshift for comoving scale
     
     // Animation
     TIME_SPEED: 0.005, // Adjusted for Friedmann evolution
     
     // Simulation
     MAX_BAO_COUNT: 200,        
-    UNIVERSE_SIZE: 4000, // Large area for background galaxies
-    CENTER_SPAWN_RANGE: 1200, // Restricted area for BAO centers to keep them on screen
+    UNIVERSE_SIZE: 8000, // Increased for high-z zoom out
+    CENTER_SPAWN_RANGE: 2400, // Increased for high-z zoom out
     
     // Galaxy Generation
     GALAXIES_PER_CENTER: 15,
@@ -110,36 +123,50 @@ const CONFIG = {
     CENTER_OPACITY_BASE: 0.8,
     RING_WIDTH_BASE: 25,
     RING_OPACITY_BASE: 0.6,
-    RING_BLUR_BASE: 40
+    RING_BLUR_BASE: 40,
+    
+    // Heatmap
+    HEATMAP_PIXEL_SIZE: 4
 };
 
 // Icons
 const ICON_POINTS = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(30 12 12)"/></svg>`;
-const ICON_HEATMAP = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg>`;
+const ICON_HEATMAP = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path></svg>`;
 
 const state = {
     z: 5.0,
     a: 1/6, // a = 1/(1+z)
     playing: false,
     lastTime: 0,
+    lastFpsTime: 0,
+    frameCount: 0,
+    fps: 0,
     baoCount: 1,
     centers: [],
     galaxies: [],
     
     // Layers
     showDensity: true,
-    showGalaxies: true,
+    showGalaxies: true, // Points
+    showHeatmap: false, // Heatmap
     showHorizon: false,
     showPlot: true,
     galaxyDensity: 1.0,
     isComoving: false, // New state for reference frame
     showRSD: false, // Redshift Space Distortions
-    renderMode: 'points', // 'points' or 'heatmap'
+    // renderMode: 'points', // Removed in favor of separate toggles
     
     // Cosmology
     omega_m: 0.3,
     omega_lambda: 0.7,
-    isFlat: true
+    omega_r: 8.4e-5, // Radiation density (approx)
+    isFlat: true,
+    
+    // Dev State
+    devMode: false,
+    showTransition: true,
+    showTileBorder: false,
+    showHeatmapLayer: true
 };
 
 function init() {
@@ -147,6 +174,39 @@ function init() {
         console.error("Canvas element not found!");
         return;
     }
+    
+    // Check Dev Mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('dev') === 'true') {
+        state.devMode = true;
+        if (devToolsBox) devToolsBox.style.display = 'flex';
+    }
+    
+    // Dev Listeners
+    if (devTransitionToggle) {
+        devTransitionToggle.addEventListener('change', (e) => {
+            state.showTransition = e.target.checked;
+            draw();
+        });
+    }
+    if (devBorderToggle) {
+        devBorderToggle.addEventListener('change', (e) => {
+            state.showTileBorder = e.target.checked;
+            draw();
+        });
+    }
+
+    // Ctrl+D Shortcut
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            state.devMode = !state.devMode;
+            if (devToolsBox) {
+                devToolsBox.style.display = state.devMode ? 'flex' : 'none';
+            }
+            draw();
+        }
+    });
     
     resize();
     window.addEventListener('resize', resize);
@@ -181,22 +241,13 @@ function init() {
         draw();
     };
     const toggleGalaxies = () => {
-        // Loop: Off -> Points -> Heatmap -> Off
-        if (!state.showGalaxies) {
-            // Off -> Points
-            state.showGalaxies = true;
-            state.renderMode = 'points';
-        } else if (state.renderMode === 'points') {
-            // Points -> Heatmap
-            state.showGalaxies = true;
-            state.renderMode = 'heatmap';
-        } else {
-            // Heatmap -> Off
-            state.showGalaxies = false;
-            state.renderMode = 'points'; // Reset to default when off
-        }
+        state.showGalaxies = !state.showGalaxies;
         updateLayerUI();
-        updateRenderModeUI();
+        draw();
+    };
+    const toggleHeatmap = () => {
+        state.showHeatmap = !state.showHeatmap;
+        updateLayerUI();
         draw();
     };
 
@@ -209,13 +260,17 @@ function init() {
 
     if (layerGalaxiesToggle) layerGalaxiesToggle.addEventListener('change', (e) => {
         state.showGalaxies = e.target.checked;
-        // If turning on via checkbox, default to points if not set
-        if (state.showGalaxies && !state.renderMode) state.renderMode = 'points';
         updateLayerUI();
-        updateRenderModeUI();
         draw();
     });
     if (sidebarGalaxiesBtn) sidebarGalaxiesBtn.addEventListener('click', toggleGalaxies);
+
+    if (layerHeatmapToggle) layerHeatmapToggle.addEventListener('change', (e) => {
+        state.showHeatmap = e.target.checked;
+        updateLayerUI();
+        draw();
+    });
+    if (sidebarHeatmapBtn) sidebarHeatmapBtn.addEventListener('click', toggleHeatmap);
 
     if (layerHorizonToggle) layerHorizonToggle.addEventListener('change', (e) => {
         state.showHorizon = e.target.checked;
@@ -390,10 +445,11 @@ function init() {
     
     if (zSlider) {
         zSlider.addEventListener('input', (e) => {
-            // RTL Slider: Min(0)=Right, Max(5)=Left
-            // Value maps directly to z
+            // RTL Slider: Min(0)=Right, Max(3.04)=Left
+            // Logarithmic mapping: z = 10^val - 1
             const val = parseFloat(e.target.value);
-            state.z = val;
+            state.z = Math.pow(10, val) - 1;
+            if (state.z < 0) state.z = 0;
             
             updatePhysicsStateFromZ(state.z);
             updateUI();
@@ -485,23 +541,7 @@ function init() {
         });
     }
 
-    // Galaxy Render Mode Listeners
-    if (renderPointsBtn && renderHeatmapBtn) {
-        renderPointsBtn.addEventListener('click', () => {
-            state.renderMode = 'points';
-            state.showGalaxies = true; // Ensure visible
-            updateLayerUI();
-            updateRenderModeUI();
-            draw();
-        });
-        renderHeatmapBtn.addEventListener('click', () => {
-            state.renderMode = 'heatmap';
-            state.showGalaxies = true; // Ensure visible
-            updateLayerUI();
-            updateRenderModeUI();
-            draw();
-        });
-    }
+
     
     // Reset All Button
     const resetAllBtn = document.getElementById('reset-all-btn');
@@ -559,7 +599,8 @@ function resetAllSettings() {
     state.galaxyDensity = 1.0;
     state.isComoving = false;
     state.showRSD = false;
-    state.renderMode = 'points';
+    state.showHeatmap = false;
+    state.heatmapMaxDensity = 0; // Reset smoothed density
     state.omega_m = 0.3;
     state.omega_lambda = 0.7;
     state.isFlat = true;
@@ -576,7 +617,6 @@ function resetAllSettings() {
     // Update UI
     updatePlayButtons();
     updateUI();
-    updateRenderModeUI();
     draw();
 }
 
@@ -591,16 +631,9 @@ function shuffleCenters() {
     state.centers.push({x: 0, y: 0});
     
     // 2. Random Peaks
-    // Spawn within the area corresponding to the MAXIMAL redshift (z=5, a=1/6).
-    // This ensures that even if we are zoomed in (z=0), we spawn enough galaxies to fill
-    // the screen when we zoom out (z=5).
-    // a_min = 1 / (1 + 5) = 1/6.
-    // We use a_min for the calculation to cover the largest possible comoving volume we might see.
-    const a_min = Math.pow(1/6, 1 - CONFIG.EXPANSION_DAMPING);
-    
-    // We use a slightly larger range (1.1x) to ensure edges are covered
-    const rangeX = (canvas.width / a_min) * 1.1; 
-    const rangeY = (canvas.height / a_min) * 1.1;
+    // Spawn uniformly within the Universe Size to ensure tiling is seamless
+    const rangeX = CONFIG.UNIVERSE_SIZE; 
+    const rangeY = CONFIG.UNIVERSE_SIZE;
     
     for (let i = 1; i < CONFIG.MAX_BAO_COUNT; i++) {
         state.centers.push({
@@ -671,6 +704,17 @@ function resize() {
     if (!canvas) return;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    
+    // Update Universe Size to cover screen at z=5
+    // At z=5, a = 1/6. a_vis = (1/6)^(1-0.6) = (1/6)^0.4 approx 0.48
+    const z_ref = 5.0;
+    const a_ref = 1 / (1 + z_ref);
+    const a_vis_ref = Math.pow(a_ref, 1 - CONFIG.EXPANSION_DAMPING);
+    
+    // We want UNIVERSE_SIZE * a_vis_ref >= max(w, h)
+    const minSize = Math.max(canvas.width, canvas.height) / a_vis_ref;
+    CONFIG.UNIVERSE_SIZE = minSize;
+    
     shuffleCenters(); // Re-distribute centers to fill the new screen size
     draw();
 }
@@ -686,7 +730,7 @@ function toggleSettings(show) {
 }
 
 function togglePlay() {
-    // If we are at the end of the simulation (z ~ 0), restart from z=5
+    // If we are at the end of the simulation (z ~ 0), restart from z=5 (Default start)
     if (!state.playing && state.z <= 0.05) {
         state.z = 5.0;
         updatePhysicsStateFromZ(state.z);
@@ -721,6 +765,7 @@ function updatePlayButtons() {
 function updateLayerUI() {
     if (layerDensityToggle) layerDensityToggle.checked = state.showDensity;
     if (layerGalaxiesToggle) layerGalaxiesToggle.checked = state.showGalaxies;
+    if (layerHeatmapToggle) layerHeatmapToggle.checked = state.showHeatmap;
     if (layerHorizonToggle) layerHorizonToggle.checked = state.showHorizon;
     if (layerPlotToggle) layerPlotToggle.checked = state.showPlot;
     
@@ -730,22 +775,13 @@ function updateLayerUI() {
     }
     
     if (sidebarGalaxiesBtn) {
-        if (state.showGalaxies) {
-            sidebarGalaxiesBtn.classList.add('active');
-            // Update Icon based on Render Mode
-            const targetMode = state.renderMode; // 'points' or 'heatmap'
-            if (sidebarGalaxiesBtn.dataset.iconMode !== targetMode) {
-                sidebarGalaxiesBtn.innerHTML = targetMode === 'heatmap' ? ICON_HEATMAP : ICON_POINTS;
-                sidebarGalaxiesBtn.dataset.iconMode = targetMode;
-            }
-        } else {
-            sidebarGalaxiesBtn.classList.remove('active');
-            // Default to points icon when off
-            if (sidebarGalaxiesBtn.dataset.iconMode !== 'points') {
-                sidebarGalaxiesBtn.innerHTML = ICON_POINTS;
-                sidebarGalaxiesBtn.dataset.iconMode = 'points';
-            }
-        }
+        if (state.showGalaxies) sidebarGalaxiesBtn.classList.add('active');
+        else sidebarGalaxiesBtn.classList.remove('active');
+    }
+
+    if (sidebarHeatmapBtn) {
+        if (state.showHeatmap) sidebarHeatmapBtn.classList.add('active');
+        else sidebarHeatmapBtn.classList.remove('active');
     }
 
     if (sidebarHorizonBtn) {
@@ -754,8 +790,17 @@ function updateLayerUI() {
     }
 
     if (sidebarPlotBtn) {
-        if (state.showPlot) sidebarPlotBtn.classList.add('inactive');
-        else sidebarPlotBtn.classList.remove('inactive');
+        if (state.showPlot) sidebarPlotBtn.classList.add('active');
+        else sidebarPlotBtn.classList.remove('active');
+    }
+
+    // Update Plot Container Visibility
+    if (correlationContainer) {
+        if (state.showPlot) {
+            correlationContainer.classList.remove('hidden');
+        } else {
+            correlationContainer.classList.add('hidden');
+        }
     }
 }
 
@@ -788,27 +833,24 @@ function updateViewUI() {
     }
 }
 
-function updateRenderModeUI() {
-    if (renderPointsBtn && renderHeatmapBtn) {
-        if (state.renderMode === 'heatmap') {
-            renderPointsBtn.classList.remove('active');
-            renderHeatmapBtn.classList.add('active');
-        } else {
-            renderPointsBtn.classList.add('active');
-            renderHeatmapBtn.classList.remove('active');
-        }
-    }
-}
+
 
 function updateUI() {
     updateLayerUI();
     updateFrameUI();
     updateViewUI();
-    updateRenderModeUI();
-    if (zVal) zVal.textContent = state.z.toFixed(2);
+    if (zVal) {
+        // Avoid overflow for large z
+        if (state.z > 10) {
+            zVal.textContent = Math.round(state.z);
+        } else {
+            zVal.textContent = state.z.toFixed(2);
+        }
+    }
     if (zSlider) {
-        // Direct mapping for RTL slider
-        zSlider.value = state.z;
+        // Logarithmic mapping for RTL slider
+        // z = 10^val - 1  =>  val = log10(z + 1)
+        zSlider.value = Math.log10(state.z + 1);
         updateSliderFill(zSlider);
     }
     if (baoVal) baoVal.textContent = state.baoCount;
@@ -820,8 +862,10 @@ function updateUI() {
         // We can also just use state.galaxies.length if it's up to date
         if (state.galaxies) {
             galaxyNumberVal.textContent = state.galaxies.length;
+            if (devObjCount) devObjCount.textContent = state.galaxies.length;
         } else {
             galaxyNumberVal.textContent = "0";
+            if (devObjCount) devObjCount.textContent = "0";
         }
     }
     if (galaxyDensitySlider) updateSliderFill(galaxyDensitySlider);
@@ -852,17 +896,30 @@ function updateSliderFill(slider) {
     const min = parseFloat(slider.min);
     const max = parseFloat(slider.max);
     const val = parseFloat(slider.value);
-    const percentage = ((val - min) / (max - min)) * 100;
+    
+    // For RTL slider, we want fill from Right (0%) to Left (100%)
+    // But standard slider fills Left to Right.
+    // We use background-size to simulate fill.
+    
+    // Standard calculation:
+    let percentage = ((val - min) / (max - min)) * 100;
     
     if (slider.classList.contains('slider-rtl')) {
-        // For RTL slider (Redshift), we want to fill from Right (0) to Left (Value)
-        // Since min=0 is on the right, and value increases to the left...
-        // Wait, standard RTL slider: min is right, max is left.
-        // If value is 0 (right), percentage is 0.
-        // If value is 5 (left), percentage is 100.
-        // We want the fill to start from the right.
-        slider.style.backgroundSize = percentage + '% 100%';
-        // The background-position will be handled in CSS (right center)
+        // RTL Logic:
+        // If min=0 (Right), max=3 (Left).
+        // Value 0 -> 0% fill (from right).
+        // Value 3 -> 100% fill.
+        // CSS background-position: right center.
+        // So width should be percentage.
+        if (slider.id === 'z-slider') {
+            // Special case for z-slider which has 3 background layers
+            // Layer 1: Fill (percentage width)
+            // Layer 2: Std Track (25.6% width)
+            // Layer 3: Opt Track (74.4% width)
+            slider.style.backgroundSize = `${percentage}% 100%, 25.6% 100%, 74.4% 100%`;
+        } else {
+            slider.style.backgroundSize = percentage + '% 100%';
+        }
     } else {
         slider.style.backgroundSize = percentage + '% 100%';
     }
@@ -875,21 +932,26 @@ function loop(timestamp) {
     state.lastTime = timestamp;
     
     // --- Friedmann Equation Evolution ---
-    // H(a) = H0 * sqrt( Om/a^3 + Ol + (1-Om-Ol)/a^2 )
+    // H(a) = H0 * sqrt( Om/a^3 + Ol + Or/a^4 + (1-Om-Ol-Or)/a^2 )
     // da/dt = a * H(a)
     // We use normalized units where H0 = 1 (or absorbed into TIME_SPEED)
     
     const a = state.a;
     const Om = state.omega_m;
     const Ol = state.omega_lambda;
-    const Ok = 1 - Om - Ol;
+    const Or = state.omega_r;
+    const Ok = 1 - Om - Ol - Or;
     
     // Avoid division by zero or negative roots
-    const E_squared = Om * Math.pow(a, -3) + Ol + Ok * Math.pow(a, -2);
+    const E_squared = Om * Math.pow(a, -3) + Ol + Or * Math.pow(a, -4) + Ok * Math.pow(a, -2);
     const E = Math.sqrt(Math.max(0, E_squared));
     
     // da = a * E * dt
-    const da = a * E * CONFIG.TIME_SPEED;
+    // For visualization purposes, we want the evolution to appear smooth on a logarithmic scale (like the slider).
+    // Using the real physical rate (da ~ a*E) makes high-z evolution instantaneous because E is huge.
+    // Instead, we use da proportional to 'a' to get exponential growth in linear time (constant log-rate).
+    // This decouples animation speed from physical expansion rate, but makes the visualization watchable.
+    const da = a * CONFIG.TIME_SPEED * 2.0; // Factor 2.0 to tune speed
     
     state.a += da;
     
@@ -936,6 +998,19 @@ function calculateGrowthFactor(a, Om, Ol) {
 }
 
 function draw() {
+    // FPS Calculation
+    const now = performance.now();
+    if (state.lastFpsTime === 0) state.lastFpsTime = now;
+    const delta = now - state.lastFpsTime;
+    state.frameCount++;
+    
+    if (delta >= 1000) {
+        state.fps = Math.round((state.frameCount * 1000) / delta);
+        state.frameCount = 0;
+        state.lastFpsTime = now;
+        if (devFps) devFps.textContent = state.fps;
+    }
+
     if (!ctx) return;
     
     const w = canvas.width;
@@ -954,9 +1029,9 @@ function draw() {
     // We still use damping for the visual effect to keep things on screen
     const a_vis = Math.pow(a_real, 1 - CONFIG.EXPANSION_DAMPING);
     
-    // Comoving Scale Factor (Fixed at z=5 scale)
-    // This ensures the view covers the same volume as the start of the simulation
-    const a_comoving = Math.pow(1/6, 1 - CONFIG.EXPANSION_DAMPING);
+    // Comoving Scale Factor (Fixed at DEFAULT_COMOVING_Z scale)
+    // This ensures the view covers a reasonable volume without making things too small at high z
+    const a_comoving = Math.pow(1/(1 + CONFIG.DEFAULT_COMOVING_Z), 1 - CONFIG.EXPANSION_DAMPING);
     
     // Determine Render Scale based on Reference Frame
     const renderScale = state.isComoving ? a_comoving : a_vis;
@@ -979,20 +1054,148 @@ function draw() {
     // Clamp scale to avoid inversion (min 0.2)
     const rsdScaleY = Math.max(0.2, 1 - rsdStrength);
 
-    if (state.showDensity) {
-        for (let i = 0; i < state.baoCount; i++) {
-            const center = state.centers[i];
-            if (!center) continue;
-            
-            const sx = cx + center.x * renderScale;
-            const sy = cy + center.y * renderScale;
-            
-            drawBAO(sx, sy, renderScale, growth, soundHorizonScale, rsdScaleY);
-        }
+    // --- Tiling Logic for High-Z ---
+    // We render the central tile (simulation box) and copy it to fill the screen.
+    // The simulation box size on screen is:
+    const boxSize = CONFIG.UNIVERSE_SIZE * renderScale;
+    
+    // Determine if we need tiling
+    const needsTiling = boxSize < Math.max(w, h);
+    
+    // Transition Logic
+    // z=1100 -> Heatmap Layer (Tiled) Visible, Galaxy Layer Hidden
+    // z=5 -> Heatmap Layer Hidden, Galaxy Layer Visible
+    // Transition range: z=1100 to z=5
+    
+    let heatmapAlpha = state.showHeatmap ? 1.0 : 0.0;
+    let galaxyAlpha = 1.0;
+
+    // Disable transition effects in Comoving Space (fix to z=5 behavior)
+    if (state.z > 5.0 && state.showTransition && !state.isComoving) {
+        const logZ = Math.log10(state.z);
+        const log5 = Math.log10(5.0);
+        const log1100 = Math.log10(1100.0);
+        
+        let t = (logZ - log5) / (log1100 - log5);
+        t = Math.max(0, Math.min(1, t));
+        
+        // Heatmap: Enforced at high z (t=1), respects toggle at low z (t=0)
+        // If toggle is ON: 1.0 -> 1.0 (Always 1)
+        // If toggle is OFF: 0.0 -> 1.0 (Fades in)
+        heatmapAlpha = state.showHeatmap ? 1.0 : t;
+        
+        // Galaxies/Density: Hidden at high z (t=1), Visible at low z (t=0)
+        galaxyAlpha = 1.0 - t;
     }
 
-    if (state.showGalaxies) {
-        drawGalaxies(cx, cy, renderScale, growth, soundHorizonScale);
+    // Render the Central Tile Content
+    let tileCanvas = null;
+    let tileCtx = null;
+    
+    if (needsTiling) {
+        // Create/Resize tile canvas
+        if (!state.tileCanvas) {
+            state.tileCanvas = document.createElement('canvas');
+        }
+        tileCanvas = state.tileCanvas;
+        
+        const size = Math.ceil(boxSize);
+        if (tileCanvas.width !== size || tileCanvas.height !== size) {
+            tileCanvas.width = size;
+            tileCanvas.height = size;
+        }
+        tileCtx = tileCanvas.getContext('2d');
+        
+        // Clear Tile
+        tileCtx.clearRect(0, 0, size, size);
+        
+        // 1. Render Heatmap Layer
+        if (heatmapAlpha > 0.01) {
+            tileCtx.save();
+            tileCtx.globalAlpha = heatmapAlpha;
+            // Use actual growth for heatmap so it aligns with galaxies and evolves
+            drawGalaxies(size/2, size/2, renderScale, growth, soundHorizonScale, tileCtx, boxSize, 'heatmap');
+            tileCtx.restore();
+        }
+        
+        // 2. Render Galaxy/Density Layer
+        if (galaxyAlpha > 0.01 && (state.showDensity || state.showGalaxies)) {
+            tileCtx.save();
+            tileCtx.globalAlpha = galaxyAlpha;
+            
+            if (state.showDensity) {
+                for (let i = 0; i < state.baoCount; i++) {
+                    const center = state.centers[i];
+                    if (!center) continue;
+                    const sx = size/2 + center.x * renderScale;
+                    const sy = size/2 + center.y * renderScale;
+                    drawBAO(sx, sy, renderScale, growth, soundHorizonScale, rsdScaleY, tileCtx, boxSize);
+                }
+            }
+            if (state.showGalaxies) {
+                drawGalaxies(size/2, size/2, renderScale, growth, soundHorizonScale, tileCtx, boxSize, 'points');
+            }
+            
+            tileCtx.restore();
+        }
+        
+        // Now tileCanvas contains the composed tile.
+        // Copy it to main canvas.
+        
+        const cols = Math.ceil(w / boxSize) + 2;
+        const rows = Math.ceil(h / boxSize) + 2;
+        
+        // Align center tile with screen center
+        const startX = cx - (boxSize / 2) - (Math.floor(cols/2) * boxSize);
+        const startY = cy - (boxSize / 2) - (Math.floor(rows/2) * boxSize);
+        
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = startX + c * boxSize;
+                const y = startY + r * boxSize;
+                ctx.drawImage(tileCanvas, 0, 0, boxSize, boxSize, x, y, boxSize, boxSize);
+            }
+        }
+        
+        // Dev: Show Border
+        if (state.devMode && state.showTileBorder) {
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+            ctx.setLineDash([]);
+        }
+
+    } else {
+        // No Tiling needed (Standard View)
+        const wrapSize = boxSize;
+
+        if (heatmapAlpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = heatmapAlpha;
+            drawGalaxies(cx, cy, renderScale, growth, soundHorizonScale, ctx, wrapSize, 'heatmap');
+            ctx.restore();
+        }
+
+        if (galaxyAlpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = galaxyAlpha;
+            
+            if (state.showDensity) {
+                for (let i = 0; i < state.baoCount; i++) {
+                    const center = state.centers[i];
+                    if (!center) continue;
+                    const sx = cx + center.x * renderScale;
+                    const sy = cy + center.y * renderScale;
+                    drawBAO(sx, sy, renderScale, growth, soundHorizonScale, rsdScaleY, ctx, wrapSize);
+                }
+            }
+
+            if (state.showGalaxies) {
+                drawGalaxies(cx, cy, renderScale, growth, soundHorizonScale, ctx, wrapSize, 'points');
+            }
+            ctx.restore();
+        }
     }
     
     // Draw Theoretical Sound Horizon (Overlay)
@@ -1025,26 +1228,66 @@ function draw() {
 
     ctx.shadowBlur = 0;
     ctx.globalCompositeOperation = 'source-over';
+
+    // --- Elliptic Mask for CMB View ---
+    // Disable mask in Comoving Space
+    if (state.z > 5.0 && state.showTransition && !state.isComoving) {
+        const logZ = Math.log10(state.z);
+        const log5 = Math.log10(5.0);
+        const log1100 = Math.log10(1100.0);
+        
+        let t = (logZ - log5) / (log1100 - log5);
+        t = Math.max(0, Math.min(1, t));
+        
+        // Interpolate Mask Size
+        // At t=0 (z=5): Full screen (effectively infinite mask)
+        // At t=1 (z=1100): Ellipse fitting the screen
+        
+        // Target Ellipse (Mollweide-ish aspect ratio 2:1)
+        const targetRx = w * 0.45; // 90% of width
+        const targetRy = targetRx * 0.5;
+        
+        // Start Ellipse (Large enough to cover screen with 2:1 ratio)
+        // Ellipse equation: x^2/(2Ry)^2 + y^2/Ry^2 = 1
+        // We need to cover the corner (w/2, h/2)
+        // (w/2)^2 / 4Ry^2 + (h/2)^2 / Ry^2 <= 1
+        // Ry >= sqrt(w^2/16 + h^2/4)
+        const startRy = Math.hypot(w/4, h/2) * 1.2; // Add 20% margin
+        const startRx = startRy * 2;
+        
+        const currentRy = startRy + (targetRy - startRy) * t;
+        const currentRx = currentRy * 2;
+        
+        // Apply Mask
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, currentRx, currentRy, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
     
     // --- Info Overlay ---
     ctx.fillStyle = '#555';
     ctx.font = '12px monospace';
     
     // Calculate Hubble Parameter H(z) / H0
-    // E(z) = sqrt(Om(1+z)^3 + Ol + Ok(1+z)^2)
+    // E(z) = sqrt(Om(1+z)^3 + Ol + Or(1+z)^4 + Ok(1+z)^2)
     const Om = state.omega_m;
     const Ol = state.omega_lambda;
-    const Ok = 1 - Om - Ol;
+    const Or = state.omega_r;
+    const Ok = 1 - Om - Ol - Or;
     const zp1 = 1 + state.z;
-    const E = Math.sqrt(Math.max(0, Om * Math.pow(zp1, 3) + Ol + Ok * Math.pow(zp1, 2)));
+    const E = Math.sqrt(Math.max(0, Om * Math.pow(zp1, 3) + Ol + Or * Math.pow(zp1, 4) + Ok * Math.pow(zp1, 2)));
     
     // Approximate Age (very rough, just for display)
     // t ~ 1/H0 * integral... let's just show normalized time t
     // Or better: "Expansion Rate H(z): X H0"
     
-    ctx.fillText(`z = ${state.z.toFixed(2)}`, 20, h - 60);
+    const zDisplay = state.z > 10 ? Math.round(state.z) : state.z.toFixed(2);
+    ctx.fillText(`z = ${zDisplay}`, 20, h - 60);
     ctx.fillText(`Expansion Rate H(z) = ${E.toFixed(2)} H₀`, 20, h - 40);
-    ctx.fillText(`Scale Factor a = ${a_real.toFixed(3)}`, 20, h - 20);
+    ctx.fillText(`Scale Factor a = ${a_real.toFixed(5)}`, 20, h - 20);
 
     // Update Correlation Plot
     if (state.showPlot) {
@@ -1148,6 +1391,36 @@ function updateCorrelationPlot(growth, horizonScale) {
     
     correlationCtx.stroke();
 
+    // Draw X-Axis Graduations
+    correlationCtx.fillStyle = '#888';
+    correlationCtx.font = '9px monospace';
+    correlationCtx.textAlign = 'center';
+    correlationCtx.textBaseline = 'top';
+
+    const tickInterval = 50;
+    for (let r = 50; r < maxDist; r += tickInterval) {
+        const x = marginLeft + (r / maxDist) * plotW;
+        
+        // Tick mark
+        correlationCtx.beginPath();
+        correlationCtx.moveTo(x, h - marginBottom);
+        correlationCtx.lineTo(x, h - marginBottom + 4);
+        correlationCtx.stroke();
+        
+        // Label
+        // Highlight 150
+        if (r === 150) {
+            correlationCtx.fillStyle = '#4cc9f0';
+            correlationCtx.font = 'bold 10px monospace';
+        } else {
+            correlationCtx.fillStyle = '#888';
+            correlationCtx.font = '9px monospace';
+        }
+        correlationCtx.fillText(r, x, h - marginBottom + 6);
+    }
+    // Reset style
+    correlationCtx.strokeStyle = '#4cc9f0';
+
     // Draw Plot Curve
     correlationCtx.beginPath();
     correlationCtx.strokeStyle = '#4cc9f0';
@@ -1221,9 +1494,11 @@ function getHeatmapSprite(colorStr) {
     return spriteCanvas;
 }
 
-function drawGalaxies(cx, cy, scale, growth, horizonScale) {
+function drawGalaxies(cx, cy, scale, growth, horizonScale, targetCtx = ctx, wrapSize = 0, renderType = 'points') {
     if (!state.galaxies || state.galaxies.length === 0) return;
     
+    targetCtx.save();
+
     // Galaxy brightness increases with growth (structure formation)
     // In Comoving frame, we want max luminosity by default to avoid the "glowing increase" effect.
     const opacity = state.isComoving ? 1.0 : Math.max(0.4, Math.min(1, growth + 0.2));
@@ -1313,83 +1588,164 @@ function drawGalaxies(cx, cy, scale, growth, horizonScale) {
             y = gy;
         }
         
+        // Normalize position if wrapping
+        if (wrapSize > 0) {
+            x = ((x % wrapSize) + wrapSize) % wrapSize;
+            y = ((y % wrapSize) + wrapSize) % wrapSize;
+        }
+
         // Draw galaxy
-        if (state.renderMode === 'heatmap') {
+        if (renderType === 'heatmap') {
              // Heatmap Mode: Accumulate in grid (handled in batch below)
              // We just store the position for the grid renderer
-             // But wait, we are inside a loop.
-             // To do a proper grid heatmap, we should do it after calculating all positions.
-             // However, to avoid refactoring the whole loop structure, let's push to a temp array
-             // or just use the "Colorized Lighter" approach which is visually similar to a heatmap
-             // but much faster than JS-based grid binning for 2000+ particles every frame?
-             // Actually, 2000 particles binning is instant in JS.
-             // Let's use the Grid approach for a "True Heatmap" look.
              
              // We need to store transformed positions to render the heatmap at the end
              if (!state.heatmapPositions) state.heatmapPositions = [];
-             state.heatmapPositions.push({x, y});
+             
+             const pushPos = (px, py) => {
+                 state.heatmapPositions.push({x: px, y: py});
+             };
+             
+             pushPos(x, y);
              
         } else {
             // Standard Point Mode
             const size = 1.5 * scale * g.sizeVar; 
             const drawSize = Math.max(1.2, size);
+            const radius = drawSize / 2;
             
-            ctx.fillStyle = `rgba(${g.color}, ${opacity * (0.6 + Math.random() * 0.4)})`;
+            targetCtx.fillStyle = `rgba(${g.color}, ${opacity * (0.6 + Math.random() * 0.4)})`;
             
-            ctx.beginPath();
-            if (g.eccentricity < 0.8 && drawSize > 2) {
-                // Draw ellipse for larger, inclined galaxies
-                ctx.ellipse(x, y, drawSize, drawSize * g.eccentricity, g.rotation, 0, Math.PI * 2);
-            } else {
-                // Draw circle for small or face-on galaxies
-                ctx.arc(x, y, drawSize, 0, Math.PI * 2);
+            const drawSingle = (tx, ty) => {
+                targetCtx.beginPath();
+                if (g.eccentricity < 0.8 && drawSize > 2) {
+                    // Draw ellipse for larger, inclined galaxies
+                    targetCtx.ellipse(tx, ty, drawSize, drawSize * g.eccentricity, g.rotation, 0, Math.PI * 2);
+                } else {
+                    // Draw circle for small or face-on galaxies
+                    targetCtx.arc(tx, ty, drawSize, 0, Math.PI * 2);
+                }
+                targetCtx.fill();
+            };
+            
+            drawSingle(x, y);
+            
+            // Wrap for points
+            if (wrapSize > 0) {
+                const xOffsets = [0];
+                if (x < radius) xOffsets.push(wrapSize);
+                if (x > wrapSize - radius) xOffsets.push(-wrapSize);
+                
+                const yOffsets = [0];
+                if (y < radius) yOffsets.push(wrapSize);
+                if (y > wrapSize - radius) yOffsets.push(-wrapSize);
+                
+                xOffsets.forEach(ox => {
+                    yOffsets.forEach(oy => {
+                        if (ox === 0 && oy === 0) return;
+                        drawSingle(x + ox, y + oy);
+                    });
+                });
             }
-            ctx.fill();
         }
     });
     
     // Render Heatmap if needed
-    if (state.renderMode === 'heatmap' && state.heatmapPositions) {
-        renderHeatmapGrid(state.heatmapPositions);
+    if (renderType === 'heatmap' && state.heatmapPositions) {
+        renderHeatmapGrid(state.heatmapPositions, targetCtx, wrapSize);
         state.heatmapPositions = []; // Clear
     }
     
-    ctx.globalAlpha = 1.0;
+    targetCtx.restore();
 }
 
 // Offscreen canvas for heatmap generation
 const heatmapCanvas = document.createElement('canvas');
 const heatmapCtx = heatmapCanvas.getContext('2d');
 
-function renderHeatmapGrid(positions) {
+function renderHeatmapGrid(positions, targetCtx = ctx, wrapSize = 0) {
     if (!positions.length) return;
     
-    // Resolution Scaling (1/4 screen size for performance + smoothing)
-    const scale = 0.25;
-    const w = Math.ceil(canvas.width * scale);
-    const h = Math.ceil(canvas.height * scale);
+    // Resolution Scaling
+    // Dynamic Resolution:
+    // - Low Z (Zoomed In): Larger pixels (more smoothing) to avoid "dots"
+    // - High Z (Zoomed Out): Smaller pixels (more detail) to avoid "uniformity"
     
-    if (heatmapCanvas.width !== w || heatmapCanvas.height !== h) {
-        heatmapCanvas.width = w;
-        heatmapCanvas.height = h;
+    let pSize;
+    // In Comoving Space, fix resolution to z=5 behavior (pSize = 4.0)
+    const z = Math.max(0.1, state.z);
+    
+    if (state.isComoving) {
+        pSize = 4.0;
+    } else {
+        // Interpolate 4 -> 0.5 (from z=5 to z=1000)
+        const logZ = Math.log10(z);
+        const log5 = Math.log10(5.0);
+        const log1000 = 3.0; // log10(1000)
+        
+        const t = Math.max(0, Math.min(1, (logZ - log5) / (log1000 - log5)));
+        pSize = 4.0 - t * 3.5;
     }
     
-    const cols = w;
-    const rows = h;
+    const targetPixelSize = Math.max(1, pSize);
+    
+    const w = (wrapSize > 0) ? wrapSize : targetCtx.canvas.width;
+    const h = (wrapSize > 0) ? wrapSize : targetCtx.canvas.height;
+    
+    // Ensure at least 1 column/row
+    const cols = Math.max(1, Math.round(w / targetPixelSize));
+    const rows = Math.max(1, Math.round(h / targetPixelSize));
+    
+    const actualPixelSizeX = w / cols;
+    const actualPixelSizeY = h / rows;
+    
+    // 3. Rendering to Padded Offscreen Canvas
+    // We add a 1-pixel border of wrapped content to ensure correct interpolation at edges
+    const pad = 1;
+    const paddedW = cols + 2 * pad;
+    const paddedH = rows + 2 * pad;
+    
+    if (heatmapCanvas.width !== paddedW || heatmapCanvas.height !== paddedH) {
+        heatmapCanvas.width = paddedW;
+        heatmapCanvas.height = paddedH;
+    }
+    
     const grid = new Float32Array(cols * rows);
     
-    // 1. Binning
+    // Helper for periodic index
+    const idx = (c, r) => {
+        // Wrap c and r
+        const wc = ((c % cols) + cols) % cols;
+        const wr = ((r % rows) + rows) % rows;
+        return wr * cols + wc;
+    };
+
+    // 1. Binning with Cloud-in-Cell (CIC) Splatting
+    // This distributes point weight to 4 nearest grid centers for smoothness
     for (let i = 0; i < positions.length; i++) {
         const p = positions[i];
-        // Scale position to grid coordinates
-        const gx = p.x * scale;
-        const gy = p.y * scale;
         
-        if (gx < 0 || gx >= w || gy < 0 || gy >= h) continue;
+        // Map to grid coordinates
+        // We shift by -0.5 so that integer coordinates correspond to cell centers
+        let gx = (p.x / actualPixelSizeX) - 0.5;
+        let gy = (p.y / actualPixelSizeY) - 0.5;
         
-        const c = Math.floor(gx);
-        const r = Math.floor(gy);
-        grid[r * cols + c] += 1.0;
+        const c0 = Math.floor(gx);
+        const r0 = Math.floor(gy);
+        
+        const fx = gx - c0;
+        const fy = gy - r0;
+        
+        // Weights
+        const w00 = (1 - fx) * (1 - fy);
+        const w10 = fx * (1 - fy);
+        const w01 = (1 - fx) * fy;
+        const w11 = fx * fy;
+        
+        grid[idx(c0, r0)] += w00;
+        grid[idx(c0 + 1, r0)] += w10;
+        grid[idx(c0, r0 + 1)] += w01;
+        grid[idx(c0 + 1, r0 + 1)] += w11;
     }
     
     // 2. Smoothing (Diffusion)
@@ -1398,30 +1754,30 @@ function renderHeatmapGrid(positions) {
     let bufferB = new Float32Array(cols * rows);
     
     // Pass 1
-    for (let r = 1; r < rows - 1; r++) {
-        for (let c = 1; c < cols - 1; c++) {
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
             const i = r * cols + c;
             bufferB[i] = (bufferA[i] * 4 + 
-                         bufferA[i-1] + bufferA[i+1] + 
-                         bufferA[i-cols] + bufferA[i+cols] +
-                         bufferA[i-cols-1] + bufferA[i-cols+1] +
-                         bufferA[i+cols-1] + bufferA[i+cols+1]) / 12;
+                         bufferA[idx(c-1, r)] + bufferA[idx(c+1, r)] + 
+                         bufferA[idx(c, r-1)] + bufferA[idx(c, r+1)] +
+                         bufferA[idx(c-1, r-1)] + bufferA[idx(c+1, r-1)] +
+                         bufferA[idx(c-1, r+1)] + bufferA[idx(c+1, r+1)]) / 12;
         }
     }
     
     // Pass 2 (Swap buffers)
     bufferA = bufferB;
-    bufferB = new Float32Array(cols * rows); // Clear or reuse grid if we didn't need original
+    bufferB = new Float32Array(cols * rows); 
     let maxDensity = 0;
     
-    for (let r = 1; r < rows - 1; r++) {
-        for (let c = 1; c < cols - 1; c++) {
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
             const i = r * cols + c;
             const val = (bufferA[i] * 4 + 
-                         bufferA[i-1] + bufferA[i+1] + 
-                         bufferA[i-cols] + bufferA[i+cols] +
-                         bufferA[i-cols-1] + bufferA[i-cols+1] +
-                         bufferA[i+cols-1] + bufferA[i+cols+1]) / 12;
+                         bufferA[idx(c-1, r)] + bufferA[idx(c+1, r)] + 
+                         bufferA[idx(c, r-1)] + bufferA[idx(c, r+1)] +
+                         bufferA[idx(c-1, r-1)] + bufferA[idx(c+1, r-1)] +
+                         bufferA[idx(c-1, r+1)] + bufferA[idx(c+1, r+1)]) / 12;
             
             bufferB[i] = val;
             if (val > maxDensity) maxDensity = val;
@@ -1431,64 +1787,96 @@ function renderHeatmapGrid(positions) {
     const smoothed = bufferB;
     
     if (maxDensity === 0) return;
+
+    // Smooth the maxDensity to prevent flickering when galaxy count is low
+    // We use a running average to stabilize the normalization factor
+    if (!state.heatmapMaxDensity || Math.abs(state.heatmapMaxDensity - maxDensity) > maxDensity * 0.5) {
+        // If it's the first run or the change is huge (e.g. density setting changed), adapt quickly
+        state.heatmapMaxDensity = maxDensity;
+    } else {
+        // Otherwise smooth it out
+        state.heatmapMaxDensity = state.heatmapMaxDensity * 0.9 + maxDensity * 0.1;
+    }
     
-    // 3. Rendering to Offscreen Canvas
-    const imgData = heatmapCtx.createImageData(w, h);
+    const normMax = state.heatmapMaxDensity;
+
+    const imgData = heatmapCtx.createImageData(paddedW, paddedH);
     const data = imgData.data;
     
-    for (let i = 0; i < cols * rows; i++) {
-        const val = smoothed[i];
-        if (val < 0.01) continue; // Transparent
-        
-        const norm = Math.min(1, val / (maxDensity * 0.8)); // Boost contrast slightly
-        
-        // Color Map (Turbo-like)
-        let r, g, b, a;
-        
-        // Alpha ramps up quickly to make low density visible
-        a = Math.min(255, Math.floor(norm * 255 * 2.0)); 
-        
-        if (norm < 0.2) {
-            // Blue range
-            const t = norm / 0.2;
-            r = 0; g = Math.floor(t * 50); b = Math.floor(150 + t * 105);
-        } else if (norm < 0.4) {
-            // Cyan range
-            const t = (norm - 0.2) / 0.2;
-            r = 0; g = Math.floor(50 + t * 205); b = 255;
-        } else if (norm < 0.6) {
-            // Green range
-            const t = (norm - 0.4) / 0.2;
-            r = Math.floor(t * 255); g = 255; b = Math.floor(255 - t * 255);
-        } else if (norm < 0.8) {
-            // Yellow range
-            const t = (norm - 0.6) / 0.2;
-            r = 255; g = Math.floor(255 - t * 100); b = 0;
-        } else {
-            // Red range
-            const t = (norm - 0.8) / 0.2;
-            r = 255; g = Math.floor(155 - t * 155); b = 0;
+    for (let r = 0; r < paddedH; r++) {
+        for (let c = 0; c < paddedW; c++) {
+            // Map to source grid coords (wrapping)
+            const srcC = (c - pad + cols) % cols;
+            const srcR = (r - pad + rows) % rows;
+            
+            const val = smoothed[srcR * cols + srcC];
+            
+            // Color Map Logic
+            // We use a Logarithmic normalization to handle the high dynamic range of the density field.
+            // This reveals faint filaments without saturating the clusters too early.
+            let red = 0, green = 0, blue = 0, alpha = 0;
+            
+            if (val >= 0.001) {
+                // Logarithmic scaling: log(1 + val) / log(1 + max)
+                // We add a small bias to avoid log(0) issues if val is tiny
+                const logVal = Math.log(1 + val * 10); 
+                const logMax = Math.log(1 + normMax * 10);
+                
+                const norm = Math.min(1, logVal / logMax);
+                
+                // Alpha: Smooth fade in
+                alpha = Math.min(255, Math.floor(Math.pow(norm, 0.5) * 255 * 1.5));
+                
+                // Color Ramp (Viridis-like but with Blue->Cyan->Yellow->Red->White)
+                // Adjusted to keep clusters distinct (Red/White) and filaments visible (Blue/Cyan)
+                if (norm < 0.25) {
+                    const t = norm / 0.25;
+                    // Deep Blue -> Blue
+                    red = 0; green = Math.floor(t * 50); blue = Math.floor(80 + t * 175);
+                } else if (norm < 0.5) {
+                    const t = (norm - 0.25) / 0.25;
+                    // Blue -> Cyan/Green
+                    red = 0; green = Math.floor(50 + t * 205); blue = Math.floor(255 - t * 50);
+                } else if (norm < 0.75) {
+                    const t = (norm - 0.5) / 0.25;
+                    // Cyan/Green -> Orange/Red
+                    red = Math.floor(t * 255); green = Math.floor(255 - t * 100); blue = Math.floor(205 - t * 205);
+                } else {
+                    const t = (norm - 0.75) / 0.25;
+                    // Orange/Red -> White (Saturation)
+                    red = 255; green = Math.floor(155 + t * 100); blue = Math.floor(t * 255);
+                }
+            }
+            
+            const idx = (r * paddedW + c) * 4;
+            data[idx] = red;
+            data[idx+1] = green;
+            data[idx+2] = blue;
+            data[idx+3] = alpha;
         }
-        
-        const idx = i * 4;
-        data[idx] = r;
-        data[idx+1] = g;
-        data[idx+2] = b;
-        data[idx+3] = a;
     }
     
     heatmapCtx.putImageData(imgData, 0, 0);
     
     // 4. Draw to Main Canvas (Upscale with smoothing)
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen'; // Blend with background
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(heatmapCanvas, 0, 0, w, h, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    targetCtx.save();
+    targetCtx.globalCompositeOperation = 'screen'; // Blend with background
+    targetCtx.imageSmoothingEnabled = true;
+    targetCtx.imageSmoothingQuality = 'high';
+    
+    // Draw with negative offset to hide the padding, but allow interpolation to use it
+    // We scale the padded canvas (cols+2*pad) to (w + 2*pad*actualPixelSize)
+    targetCtx.drawImage(
+        heatmapCanvas, 
+        -pad * actualPixelSizeX, 
+        -pad * actualPixelSizeY, 
+        w + 2 * pad * actualPixelSizeX, 
+        h + 2 * pad * actualPixelSizeY
+    );
+    targetCtx.restore();
 }
 
-function drawBAO(x, y, scale, growth, horizonScale = 1.0, rsdScaleY = 1.0) {
+function drawBAO(x, y, scale, growth, horizonScale = 1.0, rsdScaleY = 1.0, targetCtx = ctx, wrapSize = 0) {
     // Safety check for coordinates
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
@@ -1511,37 +1899,66 @@ function drawBAO(x, y, scale, growth, horizonScale = 1.0, rsdScaleY = 1.0) {
     const maxRadius = r_vis + shellWidth * 2;
     
     try {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(1, rsdScaleY);
-        
-        // Draw at (0,0) because we translated
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, maxRadius);
-        
-        // In Comoving frame, we reduce the "glow" effect to make it look more like a density map
-        // and less like a glowing neon effect, as requested.
-        const glowFactor = state.isComoving ? 0.5 : 1.0;
+        const drawSingle = (tx, ty) => {
+            targetCtx.save();
+            targetCtx.translate(tx, ty);
+            targetCtx.scale(1, rsdScaleY);
+            
+            // Draw at (0,0) because we translated
+            const g = targetCtx.createRadialGradient(0, 0, 0, 0, 0, maxRadius);
+            
+            // In Comoving frame, we reduce the "glow" effect to make it look more like a density map
+            // and less like a glowing neon effect, as requested.
+            const glowFactor = state.isComoving ? 0.5 : 1.0;
 
-        // 1. Central Peak (High Density)
-        g.addColorStop(0, `rgba(${CONFIG.CENTER_HOT_COLOR}, ${opacity * 0.9 * glowFactor})`);
-        g.addColorStop(centerRadius / maxRadius, `rgba(${CONFIG.CENTER_HALO_COLOR}, ${opacity * 0.4 * glowFactor})`);
-        
-        // 2. Gap (Low Density)
-        g.addColorStop((r_vis - shellWidth) / maxRadius, `rgba(${CONFIG.RING_BASE_COLOR}, 0.05)`);
-        
-        // 3. BAO Ring (Overdensity at Sound Horizon)
-        // We use a soft peak for the ring
-        g.addColorStop(r_vis / maxRadius, `rgba(${CONFIG.RING_GLOW_COLOR}, ${opacity * 0.3 * glowFactor})`);
-        
-        // 4. Falloff
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(0, 0, maxRadius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
+            // 1. Central Peak (High Density)
+            g.addColorStop(0, `rgba(${CONFIG.CENTER_HOT_COLOR}, ${opacity * 0.9 * glowFactor})`);
+            g.addColorStop(centerRadius / maxRadius, `rgba(${CONFIG.CENTER_HALO_COLOR}, ${opacity * 0.4 * glowFactor})`);
+            
+            // 2. Gap (Low Density)
+            g.addColorStop((r_vis - shellWidth) / maxRadius, `rgba(${CONFIG.RING_BASE_COLOR}, 0.05)`);
+            
+            // 3. BAO Ring (Overdensity at Sound Horizon)
+            // We use a soft peak for the ring
+            g.addColorStop(r_vis / maxRadius, `rgba(${CONFIG.RING_GLOW_COLOR}, ${opacity * 0.3 * glowFactor})`);
+            
+            // 4. Falloff
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            
+            targetCtx.fillStyle = g;
+            targetCtx.beginPath();
+            targetCtx.arc(0, 0, maxRadius, 0, Math.PI * 2);
+            targetCtx.fill();
+            
+            targetCtx.restore();
+        };
+
+        // Normalize position if wrapping
+        if (wrapSize > 0) {
+            x = ((x % wrapSize) + wrapSize) % wrapSize;
+            y = ((y % wrapSize) + wrapSize) % wrapSize;
+        }
+
+        // Draw Main
+        drawSingle(x, y);
+
+        // Draw Wrapped Copies if overlapping edges
+        if (wrapSize > 0) {
+            const xOffsets = [0];
+            if (x < maxRadius) xOffsets.push(wrapSize);
+            if (x > wrapSize - maxRadius) xOffsets.push(-wrapSize);
+            
+            const yOffsets = [0];
+            if (y < maxRadius) yOffsets.push(wrapSize);
+            if (y > wrapSize - maxRadius) yOffsets.push(-wrapSize);
+            
+            xOffsets.forEach(ox => {
+                yOffsets.forEach(oy => {
+                    if (ox === 0 && oy === 0) return; // Already drawn
+                    drawSingle(x + ox, y + oy);
+                });
+            });
+        }
         
     } catch (e) {
         console.error("Error drawing BAO:", e);
