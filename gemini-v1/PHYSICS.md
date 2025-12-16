@@ -82,3 +82,62 @@ The factor `20` is a visual constant for the dispersion effect.
 - **Physical Frame:** Objects expand away from each other. $r_{phys} = r_{com} \cdot a$.
 - **Comoving Frame:** Expansion is factored out. Objects remain static (except for peculiar motions).
     - **Visual Trick:** We fix the render scale to a specific redshift ($z=5$) to keep the volume constant and disable opacity evolution.
+
+## 4. Two-Point Correlation Function (TPCF)
+
+The plot shown in the bottom-left corner represents the **Two-Point Correlation Function**, denoted as $\xi(r)$. It quantifies the excess probability of finding a galaxy at a distance $r$ from another galaxy, compared to a random distribution.
+
+### 4.1 Computation Method (Stacked Density Profile)
+In a real survey, we don't know where the "centers" of the initial perturbations were. We have to count all pairs of galaxies.
+However, in this simulation, we have access to the "Ground Truth": the locations of the seed perturbations (`state.centers`).
+
+We compute a simplified, noise-free estimator by **stacking** the radial profiles of galaxies around these known centers.
+
+1.  **Pair Counting:** For every BAO center $C_i$ and every galaxy $G_j$ belonging to that center (excluding background galaxies):
+    - Calculate distance $r_{ij} = |G_j - C_i|$.
+    - Bin these distances into a histogram $N(r)$.
+
+2.  **Normalization (Volume/Area Correction):**
+    In 2D, the number of random points at distance $r$ increases linearly with the circumference $2\pi r$. To find the *density* excess, we must divide by the area of the annulus (shell).
+    $$ \rho(r) = \frac{N(r)}{2\pi r \Delta r} $$
+    Where $\Delta r$ is the bin width.
+
+3.  **Result:**
+    The resulting curve $\rho(r)$ is directly proportional to $1 + \xi(r)$.
+    - A peak at $r = 0$ represents the central cluster.
+    - A peak at $r = r_s$ represents the BAO ring.
+
+    **Why is $\rho(r) \propto 1 + \xi(r)$?**
+    
+    The two-point correlation function $\xi(r)$ is defined by the conditional probability of finding a galaxy at distance $r$, given that there is a galaxy at the origin:
+    $$ P(r) = \bar{\rho} [1 + \xi(r)] $$
+    
+    In our simulation, we generate galaxies based on a radial probability distribution centered on the "seed" locations. By stacking the density profiles around these seeds, we are empirically reconstructing this underlying probability distribution.
+    
+    Since the distribution was constructed to include the BAO excess (the "bump" at $r_s$), the measured density $\rho(r)$ recovers the mean density plus the excess correlation:
+    $$ \rho(r) \approx \bar{\rho} + \text{Signal}(r) \propto 1 + \xi(r) $$
+    
+    This makes the stacked profile a direct, low-noise estimator of the correlation function for this synthetic dataset.
+
+### 4.2 Comparison to Standard Estimators (Landy-Szalay)
+In observational cosmology (e.g., SDSS, DESI), we use the **Landy-Szalay (LS)** estimator:
+
+$$ \xi_{LS}(r) = \frac{DD(r) - 2DR(r) + RR(r)}{RR(r)} $$
+
+- **DD:** Data-Data pairs.
+- **DR:** Data-Random pairs.
+- **RR:** Random-Random pairs.
+
+**Key Differences:**
+| Feature | Simulation Method | Landy-Szalay (Real Data) |
+| :--- | :--- | :--- |
+| **Reference Point** | Known Centers ($C_i$) | Every Galaxy ($G_i$) |
+| **Noise** | Low (Background excluded) | High (Shot noise + Cosmic Variance) |
+| **Normalization** | Geometric Area ($2\pi r$) | Random Catalog ($RR$) |
+| **Computation** | $O(N_{gal})$ (Linear) | $O(N_{gal}^2)$ (Quadratic) |
+
+Our method is computationally efficient for real-time rendering (60 FPS) and provides a "clean" view of the underlying physics without the noise inherent in real galaxy surveys.
+
+> [!NOTE]
+> This LLM approximation seems a bit fishy to me. 
+> In particular, the proportionality of the stacked density profile to 1 + xi(r) seems off.
