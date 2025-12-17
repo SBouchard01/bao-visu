@@ -801,6 +801,29 @@ canvas {
     mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2a10 10 0 0 1 10 10'/%3E%3C/svg%3E");
 }
 
+/* --- Utility Classes --- */
+.icon-xs { width: 10px; height: 10px; }
+.icon-sm { width: 14px; height: 14px; }
+.icon-md { width: 16px; height: 16px; }
+.icon-lg { width: 20px; height: 20px; }
+.icon-xl { width: 24px; height: 24px; }
+
+.text-white { color: #fff; }
+.text-gray { color: #aaa; }
+
+.w-full { width: 100%; }
+.mb-sm { margin-bottom: 5px; }
+.mt-sm { margin-top: 5px; }
+
+.dev-stats-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-bottom: 5px;
+    padding: 0 5px;
+}
+
 /* --- Info Bubbles & Tooltips --- */
 .info-icon {
     display: inline-flex;
