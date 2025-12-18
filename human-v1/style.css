@@ -1,0 +1,176 @@
+/* Glassmorphism Base */
+.glass-panel {
+    background: rgba(15, 15, 15, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: -5px 0 32px rgba(0, 0, 0, 0.5);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Panel header & title */
+.panel-header {
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.logo-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-title h3 {
+    margin: 0;
+    font-size: 0.9rem; /* Smaller font to match collapsible header */
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* --- Control Boxes --- */
+.setting-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 5px; 
+    margin-bottom: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px; 
+    width: 100%; /* Ensure it fits within parent */
+    box-sizing: border-box; /* Include padding in width */
+}
+
+.box-header {
+    font-size: 0.7rem; /* Smaller font */
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.setting-box.dev-box {
+    background: rgba(255, 200, 0, 0.05);
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}
+
+.setting-box.dev-box .box-header {
+    color: #ffcc00;
+}
+
+/* Checkboxes */
+.checkbox-container {
+    display: flex;
+    flex-direction: column; /* Stack vertically */
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    user-select: none;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 4px;
+    width: 100%; /* Full width */
+    background: rgba(255, 255, 255, 0.03); /* Slight background to distinguish */
+    transition: background 0.2s;
+}
+
+.checkbox-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.checkbox-item label{
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #e0e0e0;
+    font-size: 0.8rem;
+}
+
+.checkbox-item input {
+    display: none;
+}
+
+.checkbox-item .checkmark {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #4cc9f0;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: all 0.2s;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.checkbox-item input:checked + .checkmark {
+    background: #4cc9f0;
+    color: #0b1120;
+}
+
+/* Dev settings */
+.dev-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-bottom: 5px;
+    padding: 0 5px;
+}
+
+
+.disclaimer-text {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 20px;
+    padding: 0 5px;
+    text-align: center;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.disclaimer-links {
+    display: flex; 
+    gap: 15px; 
+    justify-content: center; 
+    flex-wrap: wrap;
+}
+
+.disclaimer-links a {
+    color: #4cc9f0; 
+    text-decoration: none; 
+    border-bottom: 1px dashed #4cc9f0;
+}
+
+.disclaimer-tip {
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: #888;
+}
+
+/* --- Utility Classes --- */
+.text-white { color: #fff; }
+.text-gray { color: #aaa; }
+
+.codebox {
+    background: #333; 
+    padding: 2px 4px; 
+    border-radius: 3px; 
+    border: 1px solid #555;
+    font-family: 'Courier New', Courier, monospace;
+}
